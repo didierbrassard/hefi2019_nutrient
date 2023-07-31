@@ -122,42 +122,7 @@ Available on OSF:
 
 Complete details about analyses are provided in the article.
 
-**[Step 1. Distribution of HEFI-2019
-score](01_HEFI19CVD_Usual_intake_distribution.sas)**: estimation of
-population-level usual dietary intakes with the NCI multivariate methods
-to obtain distribution of HEFI-2019 score.
-
-**[Step 2. Participant-level
-simulation](02_HEFI19CVD_Usual_intake_simulation.sas)**: simulation of
-usual dietary intakes at the participant level with the NCI multivariate
-method to obtain measurement-error-corrected regression coefficients in
-outcome models.
-
-**[Step 3. Inverse probability
-weighting](03_HEFI19CVD_Inverse_probability_weighting.sas)**: estimation
-of inverse probability of “treatment” weights, inverse probability of
-censoring weights, and combined weights to adjust for confounding and
-censoring.
-
-**[Step 4. Outcome model](04_HEFI19CVD_Outcome_model.sas)**: estimation
-of survival curves using energy-adjusted relationship between the total
-HEFI-2019 score based on usual intakes and incident CVD with Cox
-proportional hazards regression models.
-
-**[Step 5. Bootstrap variance
-estimation](05_HEFI19CVD_Bootstrap_variance.sas)**: parametric bootstrap
-variance estimation using the 250 resampling to obtain confidence
-intervals.
-
-**[10_HEFI19CVD_Article.Rmd](10_HEFI19CVD_Article.Rmd)**: Quarto
-document to generate the text, tables and figures of the main
-manuscript. Tables and figures of the manuscript are generated in the
-`/Manuscript/` folder.
-
-**[20_HEFI19CVD_OSM.Rmd](20_HEFI19CVD_OSM.Rmd)**: Quarto document to
-generate the text, tables and figures of the online supplementary file.
-Tables and figures of the online supplementary file are generated in the
-`/Manuscript/` folder.
+...
 
 # Reference
 
