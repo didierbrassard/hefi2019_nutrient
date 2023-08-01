@@ -1,0 +1,2268 @@
+---
+title: "Relationship between adherence to the 2019 Canada’s Food Guide recommendations on healthy food choices and nutrient intakes in older adults"
+author: "Didier Brassard, Stéphanie Chevalier"
+date: today
+format:
+  html:
+    theme: Journal
+table-of-contents: true
+code-fold: true
+---
+
+```{r setup, message=FALSE, warning=FALSE}
+
+# ********************************************** #
+#                Markdown set-up                 #
+# ********************************************** #
+
+knitr::opts_chunk$set(echo = TRUE,
+                      message = FALSE,
+                      warning = FALSE,
+                      dpi = 300,
+                      out.width = "80%",
+                      fig.env = "figure",
+                      fig.align = "center"
+                      )
+
+## suppress scientific notation
+options(scipen = 9999)
+
+## file path 
+path <- here::here()
+
+# ********************************************** #
+#              Relative file paths               #
+# ********************************************** #
+
+# create directory to save figures/table/data, if needed
+if(dir.exists(here::here("Manuscript"))==FALSE){
+  dir.create(here::here("Manuscript"))
+}
+if(dir.exists(here::here("Data", "Results"))==FALSE){
+  dir.create(here::here("Data", "Results"))
+}
+
+res_dir <- here::here("Data","Results")
+
+
+# *********************************************** #
+#                   Packages                      #
+# *********************************************** #
+
+## data management
+library(haven)
+library(tidyverse)
+library(survey)
+
+## results presentation
+library(ggplot2)
+library(patchwork)
+library(gt)
+library(tinytex)
+library(MetBrewer)
+
+# *********************************************** #
+#                Common labels                    #
+# *********************************************** #
+
+### DRI groups
+drig_list <- 
+  c(0,12,13,14,15)
+
+drig_label <- 
+  c('Adults 65 y+',
+  'Males, 65 to 70 y',
+  'Females, 65 to 70 y',
+  'Males, 71 y+',
+  'Females, 71 y+')
+
+drig_plotlabel <- 
+  c('12'='Males, 65 to 70 years',
+'13'='Females, 65 to 70 years',
+'14'='Males, 71 and older',
+'15'='Females, 71 and older')
+
+### Nutrient variable names
+varname_list <- 
+  c('pro',
+    'pro_kg',
+    'calcium',
+    'vit_d',
+    'iron',
+    'zinc',
+    'vit_b6',
+    'vit_b12',
+    'dfe',
+    'mg',
+    'pota',
+    'fibers',
+    'rae')
+
+label_list <- 
+  c('Protein, g/d',
+    'Protein, g/kg/d',
+    'Calcium, mg/d',
+    'Vitamin D, mcg/d',
+    'Iron, mg/d',
+    'Zinc, mg/d',
+    'Vitamin B6, mg/d',
+    'Vitamin B12, mcg/d',
+    #'Dietary folate equivalent, mcg/d',
+    'Folate, DFE/d',
+    'Magnesium, mg/d',
+    'Potassium, mg/d',
+    'Fiber, g/d',
+    'Vitamin A, RAE/d' )
+
+varlabel_data <-
+  data.frame(varname=varname_list,
+             varnamelabel=label_list)
+
+varlabel_list <- 
+  c(pro='Protein, g/d',
+    pro_kg = 'Protein, g/kg/d',
+    calcium='Calcium, mg/d',
+    vit_d='Vitamin D, mcg/d',
+    iron='Iron, mg/d',
+    zinc='Zinc, mg/d',
+    vit_b6='Vitamin B6, mg/d',
+    vit_b12='Vitamin B12, mcg/d',
+    #dfe='Dietary folate equivalent, mcg/d',
+    dfe='Folate, DFE/d',
+    mg='Magnesium, mg/d',
+    pota='Potassium, mg/d',
+    fibers='Fiber, g/d',
+    rae='Vitamin A, RAE/d')
+
+varlabeltidy_list <- 
+  c( pro='Protein', 
+    pro_kg='Protein', 
+    calcium='Calcium', 
+    vit_d='Vitamin D', 
+    iron='Iron', 
+    zinc='Zinc', 
+    vit_b6='Vitamin B6', 
+    vit_b12='Vitamin B12', 
+    #dfe='Dietary folate equivalent', 
+    dfe='Folate', 
+    mg='Magnesium', 
+    pota='Potassium', 
+    fibers='Fiber',
+    rae='Vitamin A'
+  )
+
+  
+# ********************************************** #
+#                   Functions                    #
+# ********************************************** #
+
+# <tolower1>: lower case,but only for first letter (works for 1 word)
+  tolower1 <- function(x) {
+    substr(x, 1, 1) <- tolower(substr(x, 1, 1))
+    return(x) 
+  }
+  
+ # alternative with many words:
+ # lapply(many_x,function(x) str_replace(x, "^\\w{1}", tolower) )
+
+
+# <makeEstimate> to format mean (SD) (within mutate step for example)
+makeEstimate <- function(est,var,rounding=0.1){
+  paste0( scales::number(est,accuracy = rounding,big.mark=",")," (",scales::number(var,accuracy = rounding,big.mark=",",),")")
+}
+
+# <makeEstimateCI> to format Estimate (95%CI) (within mutate step for example)
+makeEstimateCI <- function(est,lcl,ucl,sep=" to ",numsep=",",rounding=0.1){
+paste0( scales::number(est,accuracy = rounding,big.mark=numsep),
+        " (",scales::number(lcl,accuracy = rounding,big.mark=numsep),
+          sep,
+        scales::number(ucl,accuracy = rounding,big.mark=numsep),
+          ")")  
+}
+
+make95ci <- function(x,sep=", ",rounding=0.01,reverse=0,add_suffix=""){
+  lcl <- paste0(scales::number(x$lcl95,accuracy=rounding),add_suffix)
+  ucl <- paste0(scales::number(x$ucl95,accuracy=rounding),add_suffix)
+  if(reverse==0){
+  # Regular ordering, estimate (LCL to UCL)
+    return(
+      noquote( paste0(lcl,sep,ucl) )
+    )
+  } else {
+    # Reversed ordering, estimate (UCL to LCL)
+    return(
+      noquote( paste0(ucl,sep,lcl) )
+    )
+  }
+  
+}
+
+# <slice_mc_t_out> to import individual data point
+slice_mc_t_out  <- 
+  function(nutrient,nutrient_label,proportion=0.05){
+  # set seed for consistent selection
+  set.seed(1101) # note: generated using <https://www.random.org> (range 1:5000) on 2023-07-27, first trial
+  # import, sample obs | weight_nw_sumw_div, include id, return
+  mc_sample <- 
+    haven::read_sas(file.path(path,"NCI",paste0("MCMC_",nutrient_label),"Model","_usintake_mc_t_out0.sas7bdat"),
+                  col_select=c(adm_rno,drig,weight_nw_sumw_div,
+                               HEFI2019_TOTAL_SCORE,{{nutrient}})) |> 
+  dplyr::slice_sample(#prop  = (proportion/500) , # Assuming 500 pseudo-individuals
+                      n = 200, # Better to use fixed sample size for consistency purpose
+                      weight_by = weight_nw_sumw_div) |> 
+  dplyr::mutate(
+     pseudoid = row_number()
+  ) |>
+  dplyr::select(-weight_nw_sumw_div)
+  return(mc_sample)
+  }
+
+# Auxiliary functions to read MCMC data and calculate correlations
+  source(here::here("Macros","post_mcmc_auxiliary.R"))
+
+# ********************************************** #
+#              Style and formatting              #
+# ********************************************** #
+
+# Cleveland dot plot - originally found on Stack Overflow, cant find the source 
+theme_dotplotx <- function() {
+  ggplot2::theme( ## remove the vertical grid lines
+    panel.grid.major.x = element_blank() ,
+    panel.grid.minor.x = element_blank() ,
+    ## explicitly set the horizontal lines (or they will disappear too)
+    panel.grid.major.y = element_line(color="black", linetype = 3),
+    axis.text.y = element_text(size=rel(1.2),color="black"),
+    axis.text.x = element_text(size=rel(1.2),color="black"),
+    ## use a white backgrounsd
+    panel.background = element_rect(fill = "white", colour = NA),
+    panel.border = element_rect(fill = NA, colour = "grey20"))
+}
+
+## GT Table style
+  gtstyle <- function(gtobject,footnote_marker="numbers"){
+    gtobject |>
+      gt::tab_style(
+        style = list(
+          cell_text(weight = "bold")  ),
+        locations = cells_row_groups(groups = everything())
+      ) |>
+      gt::opt_align_table_header("left") |>
+      gt::opt_footnote_marks(marks=footnote_marker)
+  }
+
+## saving gt object vs. printing directly
+  gtsave_select <- function(object,label,docx){
+if(docx == "Y"){
+  # save as docx
+ object |>
+    gt::gtsave(here::here("Manuscript",paste0(label,".docx")))
+} else {
+  # print gt object directly
+  object
+}
+  
+}  
+
+
+```
+
+# Abstract
+
+```{r abstract-data-MS, ref.label=c('distrib-y-data','mrg-prob-data','linreg-beta-data','logreg-data')}
+
+  # note: <ref.label> used to avoid duplication of codes for abstract purpose
+
+```
+
+```{r abstract-data}
+
+# *********************************************************************** #
+#                      Design and descriptive data                        #
+# *********************************************************************** #
+
+# ********************************************** #
+#               CCHS 2015 - Sample               #
+# ********************************************** #
+
+# HS data file
+hs_nci <- # note: includes data from recall 1 and 2
+  haven::read_sas(file.path(path,'Data','Processed', 'hs_nci.sas7bdat')) |>
+  dplyr::filter(age>=65)
+
+hs_65y <- 
+  hs_nci |>
+  dplyr::filter(SUPPID==1)
+
+  ## Output sample size for reporting
+  sample_size <- scales::comma(nrow(hs_65y))
+  
+  ## Output 24-hour recall stat (repeat, zero energy)
+  sample_r24 <- 
+    data.frame(
+      n        = nrow(hs_65y),
+      repeat_n = nrow(hs_nci[hs_nci$SUPPID==2,]),
+      zero_energy_n = nrow(hs_nci[hs_nci$SUPPID==1 & hs_nci$energy==0,])
+    ) |>
+    dplyr::mutate(
+      repeat_p = repeat_n / n,
+      repeat_p100 = round(repeat_p*100,0)
+    )
+
+# Input data and CCHS 2015 design
+  ## Sampling weights only (no variance needed)
+  cchs_65y_design <-
+    survey::svydesign(id=~0,
+                      data=hs_65y,
+                      weights = ~WTS_P)
+  
+  ## proportion of males / females
+  sample_sex <- 
+    survey::svytable(~sex,
+                     design=cchs_65y_design) |>
+    dplyr::as_tibble() |>
+    tidyr::pivot_wider(values_from = n, names_from = sex, names_prefix = "sex") |> 
+    dplyr::rename(males_n=sex1,females_n=sex2) |>
+    dplyr::mutate(
+      total_n = (males_n+females_n),
+      males_p = (males_n / total_n),
+      females_p = (females_n / total_n)
+    )
+  
+  ## mean age
+  sample_age <- 
+    survey::svymean(~age,design=cchs_65y_design) |>
+    dplyr::as_tibble() 
+  
+# ********************************************** #
+#          HEFI-2019 score: descriptive          #
+# ********************************************** #
+  
+hefi19_score <- 
+  haven::read_sas(file.path(path,'NCI', 'MCMC_score', 'Results', 'distribtotal_w0.sas7bdat')) |>
+  dplyr::mutate(
+    mean_sd = makeEstimate(Mean,StdDev,0.1),
+    # pre calculate change of interest
+    change = Pctile90 - Pctile50
+  )
+
+# *********************************************************************** #
+#                Summary data based on <ref.label> chunks                 #
+# *********************************************************************** #
+
+  #note: <logreg_beta_all> created in chunk <logreg-data>
+
+logreg_beta_RD_sorted <- 
+  logreg_beta_all |>
+  dplyr::filter(name=="risk_diff",drig==0) |>
+  dplyr::arrange(estimate) |>
+  dplyr::mutate(
+  # create 95ci manually for citing
+    ci95 = paste0("(",scales::number(lcl95,accuracy = 0.1),
+          ", ", scales::number(ucl95,accuracy = 0.1), ")"),
+    est_txt = 
+      paste0( scales::number(estimate,accuracy = 0.1),
+        "% [95%CI: ",scales::number(lcl95,accuracy = 0.1),
+          ", ", scales::number(ucl95,accuracy = 0.1), "]")  
+  )
+  
+
+```
+
+**Background:** Following Canada’s food guide (CFG) recommendations should ensure adequate nutrient intakes. Older adults have increased needs for certain nutrients and nutrient density; the extent to which adherence to CFG recommendations can help reduce inadequate nutrient intakes is unknown.
+
+**Objective:** Our aim was to assess the relationship between adherence to CFG recommendations on healthy food choices and intake of key nutrients in adults 65 years and older from the Canadian Community Health Survey (CCHS) 2015 - Nutrition.
+
+**Methods:** Secondary analysis of data from `r noquote(sample_size)` older adults of the CCHS 2015 - Nutrition (mean age, `r round(sample_age$mean,1)` y, `r round(sample_sex$females_p*100)`% females). Dietary intakes were measured using an interviewer-administered 24-hour dietary recall including one repeat in a subsample (`r sample_r24$repeat_p100`%). The National Cancer Institute multivariate method was used to estimate usual (i.e., long-term) dietary intakes. Adherence to CFG recommendations was measured using the Healthy Eating Food Index (HEFI)-2019 score. Simple linear and logistic regression models estimated the effect of increased HEFI-2019 score on usual nutrient intakes and the prevalence of inadequate nutrient intakes (i.e., below the estimated average requirements), respectively.
+
+**Results:** Compared with the prevalence of inadequate intakes at median HEFI-2019 score (`r round(hefi19_score$Pctile50,1)`/80 points), a higher HEFI-2019 (+`r round(hefi19_score$change,0)` points) was associated with reductions in the prevalence of inadequate intakes of `r knitr::combine_words(lapply(logreg_beta_RD_sorted[1:3,]$varname_f,function(x) str_replace(x, "^\\w{1}", tolower) ))` (`r knitr::combine_words(logreg_beta_RD_sorted[1:3,]$est_txt)`, respectively). On the contrary, data for higher HEFI-2019 scores were compatible with increased in the prevalence of inadequate intakes of `r knitr::combine_words(tolower(logreg_beta_RD_sorted[(nrow(logreg_beta_RD_sorted)):(nrow(logreg_beta_RD_sorted)-2),]$varname_f))` (`r knitr::combine_words(logreg_beta_RD_sorted[(nrow(logreg_beta_RD_sorted)):(nrow(logreg_beta_RD_sorted)-2),]$est_txt)`, respectively).
+
+**Conclusion:** Based on dietary intakes of Canadian older adults in 2015, increasing the degree of adherence to CFG recommendations on healthy food choices may reduce nutrient intake inadequacy for most key nutrients except folate, vitamin D and calcium.
+
+**Keywords:** older adults, 24-hour dietary recalls; CFG; HEFI-2019; Canada's Food Guide; dietary guidelines; healthy eating food index; Canadian Community Health Survey; CCHS. 
+
+\newpage
+
+# Introduction
+
+Previous editions of the Canada’s Food Guide (CFG) informed on food choices to prevent malnutrition as the primary goal. Recommendations of the CFG-2007 were expressed in terms of number of servings to consume every day for the broad categories of foods: Vegetables and fruits, Grains, Dairy and Alternatives, and Meat and Alternatives (1, 2). The CFG-2007 recommended daily servings based on comprehensive diet simulations, thus ensuring that Dietary Reference Intakes (DRI) were met (2). The latest CFG (2019) adopted a different approach and primarily aims at chronic disease risk reduction (3-6). In addition, recommendations in CFG-2019 (e.g., “eat more often …”) are more flexible than those of CFG-2007 and rely on proportions of food categories to constitute a healthy plate, without recommended quantitative daily servings. 
+
+The release of the CFG-2019 elicited positive reactions (7, 8), but also raised concerns on nutrient adequacy. For example, preliminary modeling of eating patterns consistent with the CFG-2019 plate snapshot revealed that adherence may be insufficient to meet calcium and vitamin D requirements (9). The ability of consumers and policymakers to properly implement CFG-2019 recommendations on protein foods was also found unclear (10). In the Canadian Community Health Survey (CCHS) 2015 – Nutrition, animal-based protein foods contributed more than two thirds of total protein intake (11) as well as to overall nutrient intakes (12), which contrasts with CFG-2019 recommendations aiming at increasing intake of plant-based foods. Accordingly, following CFG-2019 recommendations while failing to include nutrient-dense foods and beverages could amplify the proportion of the population with inadequate nutrient intakes, especially for certain age groups at higher risk. In that regard, maintaining adequate nutrient intakes is a challenge for older adults (13, 14). Older adults face social (e.g., loneliness, inability to buy or prepare foods) and physiological (e.g., changes in taste, loss of appetite, malabsorption) barriers to consuming a nutrient-dense diet (14). Notably, calcium, vitamin D, fiber, potassium and protein were identified as nutrients of concern among older adults in the United States 2015 Dietary Guidelines report (15). Similarly, a high proportion of long-term care residents in Canada had inadequate calcium, folate, vitamin B6 and magnesium intakes (16). In sum, the one-size-fits-all recommendations in CFG-2019 may not be well-suited for older adults who face unique challenges to healthy eating compared with other strata of the population.
+
+Whether adherence to CFG-2019 recommendations on healthy food choices fulfils nutritional needs of older Canadians is currently unknown; no evidence from contemporary eating patterns exists. The general aim of this study was therefore to assess the relationship between adherence to CFG-2019 recommendations, using the Healthy Eating Food Index-2019 (HEFI-2019) , and intakes of key nutrients from food sources only, of adults aged ≥65 years from the CCHS 2015 – Nutrition. The HEFI-2019 score is a metric measuring the alignment of eating patterns with CFG-2019 recommendations on food choices (17, 18). More precisely, we assessed 1) the continuous relationship between the HEFI-2019 score and nutrient intakes, and 2) the estimated change in the prevalence of nutrient inadequacy according to a hypothetical increase in HEFI-2019 score. We hypothesized that higher adherence to CFG-2019 recommendations would show an inverse relationship with intakes of nutrients more commonly found or eaten in animal-based foods, such as protein, calcium, vitamin D, iron, zinc, vitamin B6 and B12, and a positive relationship with intakes of nutrients more commonly found in plant-based foods such as fiber, folate, magnesium, potassium, vitamin A.
+
+\newpage
+
+# Materials and Methods
+
+## Study Design and Participants
+
+This study is based on a sample of older adults aged 65 years or older from the CCHS 2015 – Nutrition (19). The CCHS 2015 -Nutrition is a nationally representative survey of individuals aged 1 year and older living in private dwellings in the 10 Canadian provinces. Full-time members of the Canadian Forces and individuals living in the Territories, on reserves, in remote areas, and in institutions were not included. Data collection occurred between January 1st to December 31, 2015. Respondents aged less than 65 years (n=16,394) and those reporting zero energy on their first 24-hour dietary recall intake were excluded (n=4), yielding a final sample of 4,089 respondents. The public use microdata file (PUMF) of CCHS 2015 – Nutrition was obtained from Statistics Canada.
+
+## Data Collection and Dietary Assessment
+
+Interviewer-administered 24-hour dietary recalls were used to assess dietary intakes. The interviews were mostly (98%) conducted in person for the first 24-hour recall and by telephone for the second 24-hour recall. All 24-hour recall interviews were structured according to the Automated Multiple Pass Method (19). Portion size estimation of foods and beverages in plates, bowls, glasses and mugs was facilitated using a food booklet designed for the survey (19). All respondents completed one 24-hour recall and a subsample of 1,706 respondents (42%) completed a second 24-hour recall. Nutrient intakes were calculated based on the Canadian Nutrient File 2015 (20), except for intakes of free sugars which were recently published by Health Canada (21). Total food intakes expressed in reference amounts (RA) (22) were calculated for each respondent, 24-hour dietary recall and HEFI-2019 food and beverage categories. The interviewers measured body weight of respondents with a standard scale (LifeSource Scales Model US-321).
+
+### The Healthy Eating Food Index (HEFI) 2019
+
+The HEFI-2019 is a continuous score which measures the degree of adherence between dietary intakes and Canada’s Food Guide 2019 recommendations on healthy food choices. Complete details about the development and the evaluation of the HEFI-2019 are available elsewhere (17, 18). Briefly, the HEFI-2019 has 10 components including 5 based on intake of foods (Vegetables and fruits, Whole-grain foods, Grain foods ratio, Protein foods, Plant-based protein foods), 1 on beverages (Beverages), and 4 on nutrients (Fatty acids ratio, Saturated fats, Free sugars, and Sodium). The Saturated fats, Free sugars and Sodium components are so-called “moderation” components, for which higher scores are attributed to intakes below thresholds consistent with CFG-2019 recommendations. The remaining components are “adequacy” components for which higher scores are attributed to greater intakes. Details about each component and scoring standards are presented in **Supplemental Table 1**. The total HEFI-2019 score sums up to 80 points with higher scores indicating greater adherence to recommendations. The HEFI-2019 was evaluated using dietary intake data from the CCHS 2015 – Nutrition (18). Notably, the variability of the HEFI-2019 score was sufficient, the HEFI-2019 score was correlated with the Healthy Eating Index (HEI)-2015 (r=0.79) and differences of HEFI-2019 score were found among subgroups with known diet quality differences based on sex, age, and smoking status (18). Finally, a prospective analysis of UK Biobank data suggested that a hypothetical increase in HEFI-2019 score reduces the 11-year risk of cardiovascular disease in middle-aged and older adults (6).
+### Nutrient intakes
+
+Key nutrients for older adults were selected a priori according to data availability in the CCHS 2015 – Nutrition as well as previous literature (13, 23). The nutrients were protein, calcium, vitamin D, iron, zinc, vitamin B6, vitamin B12, dietary folate equivalent (folate hereafter), magnesium, potassium, fiber, and retinol activity equivalent (vitamin A hereafter).  Nutrient intakes from supplements were not included since Canada’s Food Guide recommendations on healthy food choices focus on foods and beverages. The proportion of respondents with inadequate intakes was estimated using the cut-point method and the Estimated Average Requirements (EAR) of the Dietary Reference Intake (24). Because there is no EAR for potassium and fiber, the prevalence of intake inadequacy cannot be assessed. Instead, the proportion of respondents with intakes above the adequate intake (AI) value was considered. 
+
+Recognizing the consensus that recommended protein intakes for older adults should be higher than current recommendations (25-27), we also estimated the proportion of respondents with inadequate protein intakes at cut-offs higher than the current EAR. The hypothetical EAR cut-offs of 0.8 and 1.0 grams of protein per kg of bodyweight were selected to reflect hypothetical higher recommended daily allowance (RDA) of 1.0 and 1.2 g/kg, respectively. The latter analysis was not pre-specified and is considered exploratory.
+
+
+## Statistical Analyses
+
+Sampling weights provided by Statistics Canada were used in all analyses to reflect the Canadian population of older adults in 2015 as well as bootstrap replicate weights for variance estimation. The sampling weights accounting for missing data on body weight were also used where appropriate. Analyses were performed in SAS Studio v3.8 (SAS Institute) and `r noquote(R.version$version.string)` (R Foundation for Statistical Computing).
+
+To assess the relationship between the HEFI-2019 score and nutrient intakes, analyses involved four steps, detailed below:
+
+1) measurement error correction of dietary intakes to estimate usual intakes using the National Cancer Institute (NCI) Markov Chain Monte Carlo (MCMC) multivariate method;
+2) linear regression of continuous nutrient intakes on total HEFI-2019 scores;
+3) logistic regression of the proportion of individuals below EAR on total HEFI-2019 scores; and,
+4) variance estimation using bootstrap replicate weights provided by Statistics Canada.
+
+First, the 24-hour dietary recalls are mainly affected by within-individual random errors, which require correction to estimate distribution of intakes (28, 29). To account for correlated random errors of all dietary constituents of the HEFI-2019 (e.g., vegetables and fruits, free sugars) and those of nutrient intakes (e.g., protein), the NCI MCMC multivariate method was used (MULTIVAR_MCMC_MACRO_V2.1 and MULTIVAR_DISTRIB_MACRO_V2.1, 2017) (30, 31). Briefly, the multivariate method uses Monte Carlo simulation to estimate distribution of usual intakes (i.e., long-term average) of multiple dietary constituents correlated with each other. The multivariate method also accounts for systematic differences due to “nuisance” factors (day of the week, sequence of recall) and considers foods that are episodically consumed (e.g., plant-based protein foods) (30). 
+
+Nutrients with common food sources were modelled together to have parsimonious measurement error correction models, yielding 5 different models each combining 1 to 4 nutrients with the 15 dietary constituents of the HEFI-2019 (see below). Model 1 included protein only; model 2 included calcium and vitamin D; model 3 included iron, zinc, vitamin B6 and vitamin B12; model 4 included folate, magnesium, potassium and fiber; model 5 included vitamin A only. The 15 dietary constituents of the HEFI-2019 were vegetables and fruits, whole-grain foods, animal-based protein foods, plant-based protein foods, unsweetened milk, water and other healthy beverages (e.g., unsweetened coffee or tea), refined grain foods, “other” foods not recommended, “other” beverages not recommended (i.e., sugary drinks, artificially sweetened beverages, vegetable and fruit juices, sweetened milk and plant-based beverages, alcohol), free sugars, monounsaturated fats, polyunsaturated fats, saturated fats, sodium and total energy intake. A total of 5 food and beverage categories (i.e., whole-grain foods, refined grain foods, plant-based protein foods, “other” beverages not recommended and unsweetened milk) were considered episodically consumed since at least 10% of respondents reported zero consumption on the first 24-h recall (31). All the remaining foods and nutrients were considered as consumed daily. 
+
+The measurement error correction models were stratified by sex to reflect sex-specific random variations in dietary intakes and to derive sex-specific associations (31, 32). The models also included the covariates age (indicator for 71 years or older), sequence of recall (indicator for second recall) and weekend (indicator for a 24-hour recall of intakes on Friday, Saturday or Sunday). In addition, the model for protein intake also included body weight (kg) as a covariate to derive protein intake per kg and assess the proportion of individuals below the EAR. A total of 500 pseudo-individuals were generated in the Monte Carlo simulation step of the NCI multivariate method. Simulations from each stratum (i.e., males and females) were pooled together. The HEFI-2019 scoring algorithm was then applied using the modelled dietary constituents among the 500 pseudo-individuals to derive HEFI-2019 scores. Descriptive statistics were calculated based on usual intakes among the 500 pseudo-individuals including the prevalence of intake inadequacy, mean (SD) dietary intakes and HEFI-2019 scores as well as correlations between dietary constituents of the HEFI-2019 and nutrient intakes.
+
+Second, based on the Monte Carlo simulation data, simple linear regression models were used to assess the relationship between the continuous HEFI-2019 score, as the independent variable, and continuous nutrient intakes, as the dependent variable. A restricted cubic spline transformation with 5 knots (percentiles 5, 27, 50, 73 and 95) was applied a priori to the HEFI-2019 score to assess potential non-linearity (33). To estimate change according to feasible increases in adherence, expected nutrient intake differences were calculated according to an increase in HEFI-2019 score from the median score to the 90th percentile of the usual intake distribution. In other words, we estimated nutrient intake difference according to a hypothetical change where respondents would have had high HEFI-2019 scores compared with the HEFI-2019 score respondents had on average, taken as the median of this sample. 
+
+Third, also based on the Monte Carlo simulation data, logistic regression models were used to assess the odds of having nutrient intake below the age- and sex-specific EAR and the continuous HEFI-2019 score. A restricted cubic spline transformation was also applied to the HEFI-2019 score. Predicted odds of nutrient intake inadequacy were generated for the 90th percentile and the median. Both predicted odds were then re-expressed as risk of inadequacy ($\text{risk}=\frac{e^X}{(1+e^X)}$); where $X$ corresponds to predicted odds at a given HEFI-2019 score percentile). The expected change in the prevalence of inadequate nutrient intakes, i.e., risk difference, was calculated by the difference between the estimated risk of inadequacy at the 90^th percentile vs. the median HEFI-2019 score. 
+
+Fourth, steps 1 to 3 were repeated 500 times using bootstrap replicate weights to generate standard errors and 95%CI via normal approximation. The convergence of bootstrap standard errors and the normality of bootstrap estimates were confirmed graphically. Data from one bootstrap replicate was removed for potassium due to non-convergence.
+
+\newpage
+
+# Results
+
+## HEFI-2019 Score and Dietary Constituents
+
+```{r hefi-distrib-data}
+
+# *********************************************************************** #
+#               Import SAS data of HEFI-2019 distribution                 #
+# *********************************************************************** #
+
+hefi_distrib_all <- 
+  haven::read_sas(file.path(path,'NCI', 'MCMC_score', 'Results', 'distribtotal_w0.sas7bdat')) |> 
+  dplyr::mutate(drig=0,
+                varname="HEFI2019_TOTAL_SCORE",
+                mean_sd = makeEstimate(Mean,StdDev)
+                )
+
+hefi_distrib_drig <- 
+  haven::read_sas(file.path(path,'NCI', 'MCMC_score', 'Results', 'distribtotal_w_drig0.sas7bdat')) |> 
+  dplyr::filter(drig<9000) |> # remove score differences among DRI groups
+  dplyr::select(-Contrast) |> 
+  dplyr::mutate(
+    mean_sd = makeEstimate(Mean,StdDev)
+  )
+
+# append both
+hefi_distrib <- 
+  rbind(hefi_distrib_all,hefi_distrib_drig)
+
+hefi_distrib$drigf <- 
+  factor(hefi_distrib$drig,
+         levels=drig_list,
+         labels=drig_label)
+
+# clean temporary data
+  rm(hefi_distrib_all)
+  rm(hefi_distrib_drig)
+  
+# output ordered list
+
+  hefi_distrib_orderd <- 
+    hefi_distrib |>
+    dplyr::filter(drig>0) |>
+    dplyr::arrange(desc(Mean)) |>
+    dplyr::select(Mean,StdDev,mean_sd,drig,drigf)
+
+# *********************************************************************** #
+#             Plot score distribution using density function              #
+# *********************************************************************** #
+
+# Make long data to plot distrib
+hefi_distrib_t <- 
+  hefi_distrib |> 
+  dplyr::select(drig,drigf,Pctile1:Pctile99) |> 
+  tidyr::pivot_longer(
+   cols= Pctile1:Pctile99
+  ) |>
+  dplyr::mutate(
+    p = as.numeric(gsub('Pctile','',name))
+  )
+
+# save data for future analyses
+save( hefi_distrib_t,
+      file = file.path(res_dir,"hefi_distrib_t.rdata"))
+
+  
+# *********************************************************************** #
+#                 Plot score distribution using BoxPlot                   #
+# *********************************************************************** #
+  
+hefi_distrib_hist <- 
+  hefi_distrib_t |> 
+  dplyr::filter(drig==0) |> 
+  ggplot(aes(x=value),stat="identity") +
+  geom_histogram(binwidth = 2, aes(y=after_stat(density)), colour="black",fill="white") +
+  geom_density(kernel="gaussian",fill="black",alpha=0.1) +
+  # geom_vline(xintercept=43.1,colour=MetBrewer::met.brewer("Hiroshige")[[1]],
+  #            linetype="longdash",size=1.5) +
+  labs(x="Total HEFI-2019 score, points",y="Density")+ 
+  theme_bw() 
+
+```
+
+The mean (SD) HEFI-2019 score among all adults 65 years and older was `r noquote(hefi_distrib[1,]$mean_sd)` (/80 points). Among age and sex subgroups, the mean HEFI-2019 score was the highest in `r noquote(tolower(hefi_distrib_orderd[1,]$drigf))` (`r round(hefi_distrib_orderd[1,]$Mean,1)` points) and the lowest in `r noquote(tolower(hefi_distrib_orderd[4,]$drigf))` (`r round(hefi_distrib_orderd[4,]$Mean,1)` points; @fig-hefi-distrib).
+
+```{r fig-hefi-distrib}
+#| label: fig-hefi-distrib
+#| fig-cap: "Distribution of total HEFI-2019 score, based on usual dietary intakes in 4,089 adults aged 65 years and more from the CCHS 2015 - Nutrition. Diamonds are means. Left and right whiskers indicate the 5th and 95th percentile, respectively. Dietary intakes were modelled using the National Cancer Institute multivariate method to estimate usual intakes (see Methods). CCHS, Canadian Community Health Survey; DRI, Dietary Reference Intake; HEFI-2019, Healthy Eating Food Index-2019."
+#| fig-height: 7
+#| fig-width: 7
+
+# *********************************************************************** #
+#               Plot score distribution using Box+Density                 #
+# *********************************************************************** #
+
+# load data
+ load(file=file.path(res_dir,"mrg_all.rdata"))
+
+# generate figure 
+hefi_distrib_plot <-
+  hefi_distrib_t |>
+  dplyr::mutate(
+    sample=ifelse(drig==0,"All","By DRI group")
+  ) |>
+  dplyr::filter(drig!=0) |>
+  # ggplot call
+  ggplot(stat="identity") +
+    # half density
+      ggdist::stat_slab(aes(y = drigf, x = value, #fill = drigf
+                            ), fill="gray",
+                        color="black",
+                        side = "right", justification=-0.15,
+                        scale = 0.75, position = "dodge",alpha = .5) +
+    # Box plot
+      geom_boxplot(data=subset(hefi_distrib, drig>0),
+                   aes(y=drigf,xlower=Pctile25,xupper=Pctile75,
+                       xmiddle=Pctile50,
+                       xmin=Pctile5, xmax=Pctile95,
+                       #fill = drigf
+                       ), fill="white",
+                   alpha=0.5, width= .2, stat="identity") +
+    # Diamond for mean
+      geom_point(data=subset(hefi_distrib, drig>0),
+                 aes(x = Mean,y=drigf),shape=18, size=4) +
+  labs(x="HEFI-2019 score based on usual intakes (/80), points",
+       y="Age and sex group") +
+  theme_bw()
+
+# Show figure
+hefi_distrib_plot
+
+# ********************************************** #
+#            Export graph as PDF/PNG             #
+# ********************************************** #
+
+  ggplot2::ggsave(here::here('Manuscript', 'Fig1_hefi_distrib.pdf'),
+        plot=hefi_distrib_plot, dpi=300, width=7,height=7, units="in",scale=1,device = cairo_pdf)
+
+  ggplot2::ggsave(here::here('Manuscript', 'Fig1_hefi_distrib.png'),
+         plot=hefi_distrib_plot, dpi=300, width=7,height=7, units="in",scale=1)
+
+
+```
+
+```{r descr-intake-data}
+
+# *********************************************************************** #
+#                 MCMC data of HEFI dietary constituents                  #
+# *********************************************************************** #
+
+# Read mcmc data and save as <rds> for efficiency purpose
+if(file.exists(file.path(res_dir,"usintake_mc_t_out0.rds"))==FALSE){
+  ## record time
+  tictoc::tic()
+  ## read mcmc data on external drive once, write as .rds file for future use
+  haven::read_sas(file.path(path, 'NCI', 'MCMC_score', 'Model', '_usintake_mc_t_out0.sas7bdat')) |>
+    ### drop some variables as only dietary intake data used here
+    select(-c(weight_nw_sumw, starts_with("HEFI"), starts_with("RATIO"),
+              catscore, starts_with("Prob"), energy_unit)) |>
+  saveRDS(file = file.path(res_dir,"usintake_mc_t_out0.rds"))
+  ## show time
+  tictoc::toc()
+} else {
+  ## file already exists, do nothing else
+  message("note: <usintake_mc_t_out0.rds> data found in <./Data/Results/>")
+}
+
+    # note: the SAS format <.sas7bdat> produces ~ 1.5-folder larger data
+
+# read rds file, prepare
+mcmc <- 
+  readRDS(file = file.path(res_dir,"usintake_mc_t_out0.rds")) |>
+  select(weight_nw_sumw_div, wg, rg, pfab, pfpb, milk) |>
+  mutate(
+    # grain sources
+    ratio_wg_total = wg / (wg+rg), 
+    # protein sources
+    milk_ra    = milk/258,
+    pro_total  = pfab + pfpb + milk_ra,
+    pro_animal = pfab + milk_ra,
+    ratio_proanimal_total = pro_animal / pro_total
+  ) 
+
+# ********************************************** #
+#          Output statistic of interest          #
+# ********************************************** #
+
+ratio_wg_total <- 
+  with(mcmc, stats::weighted.mean(x = ratio_wg_total,
+                                  w = weight_nw_sumw_div))
+
+ratio_proanimal_total <- 
+  with(mcmc, stats::weighted.mean(x = ratio_proanimal_total,
+                                  w = weight_nw_sumw_div))
+
+# clean temporary large file
+rm(mcmc)
+
+```
+
+**Supplemental Table 2 and 3** present, respectively, usual mean intakes and percentile of the distribution of foods and beverages, as well as nutrients, contributing to the HEFI-2019 score. Older adults consumed approximately `r noquote(scales::percent(ratio_proanimal_total))` of their total protein foods from animal-based source and `r noquote(scales::percent(1-ratio_wg_total))` of their total grain foods intake as non-whole grain foods.
+
+```{r corr-data}
+
+# *********************************************************************** #
+#                    Apply function on each nutrients                     #
+# *********************************************************************** #
+
+#Load data, estimate correlations and save results
+
+# note: <read_n_corr> located in <./Macros/post_mcmc_auxiliary.R>
+# note: if needed, could apply a <purrr> loop to obtain bootstrap sampling distribution
+
+if(file.exists(file.path(res_dir,"suppl_corr.rdata"))==FALSE){
+corr_pro <-
+  read_n_corr(nut_vars  = "proteins",
+              nut_label = "pro",
+              tidy      = TRUE)
+
+corr_ca_vitd <-
+  read_n_corr(nut_vars  = c("calcium", "vit_d"),
+              nut_label = "ca_vit_d",
+              tidy      = TRUE)
+
+corr_miscA <-
+  read_n_corr(nut_vars  = c("iron", "zinc", "vit_b6", "vit_b12"),
+              nut_label = "miscA",
+              tidy      = TRUE)
+
+corr_miscB <-
+  read_n_corr(nut_vars  = c("dfe", "mg", "fibers", "pota"),
+              nut_label = "miscB",
+              tidy      = TRUE)
+
+corr_vita <-
+  read_n_corr(nut_vars  = c("vit_a"),
+              nut_label = "vit_a",
+              tidy      = TRUE)
+
+suppl_corr <-
+  full_join(corr_pro,
+            corr_ca_vitd) |>
+  full_join(corr_miscA) |>
+  full_join(corr_miscB) |>
+  full_join(corr_vita) |>
+  rename(rae = vit_a )
+
+
+# Save correlation data for further analyses
+save(suppl_corr,
+     file = file.path(res_dir,"suppl_corr.rdata"))
+} 
+
+# load corr data regardless
+load(file = file.path(res_dir,"suppl_corr.rdata"))
+
+# ********************************************** #
+#                Data preparation                #
+# ********************************************** #
+
+# Transpose from wide to long
+suppl_corr_t <-
+  suppl_corr |>
+  # drop identifier
+  dplyr::select(-c(replicate, index, name)) |>
+  # transpose
+  t() |>
+  tibble::as_tibble() |>
+  setNames(suppl_corr$name) 
+
+# Add nutrient names
+suppl_corr_t$nutrient <- names(suppl_corr)[4:15]
+
+# Vector of HEFI foods
+  hefi_foods <- 
+    c('vf', 'wg', 'pfab', 'pfpb', 'milk', 'water', 'otherbevs', 'rg', 'otherfoods')
+# Add the <_res> suffix for easy id
+  hefi_foods_res <- 
+    paste0(hefi_foods,"_res")
+
+# prepare data for correlation heatmap: 'melt'
+suppl_corr_t_melted <- 
+  suppl_corr_t |>
+  select(nutrient,all_of(hefi_foods_res)) |> # select components only
+  reshape2::melt()
+
+# ********************************************** #
+#                  Nicer labels                  #
+# ********************************************** #
+
+# order values and add 'clean' labels
+suppl_corr_t_melted$nutrient_f <-
+  factor(suppl_corr_t_melted$nutrient,
+         levels =c('proteins', 
+                   'calcium', 
+                   'vit_d', 
+                   'iron', 
+                   'zinc', 
+                   'vit_b6', 
+                   'vit_b12', 
+                   'dfe', 
+                   'mg', 
+                   'fibers', 
+                   'pota', 
+                   'rae'),
+         labels  =c('Protein', 
+                    'Calcium', 
+                    'Vitamin D', 
+                    'Iron', 
+                    'Zinc', 
+                    'Vitamin B6', 
+                    'Vitamin B12', 
+                    'Folate', 
+                    'Magnesium', 
+                    'Fiber', 
+                    'Potassium', 
+                    'Vitamin A'))
+
+suppl_corr_t_melted$variable_f <-
+  factor(suppl_corr_t_melted$variable,
+         levels = c('vf_res',
+                    'wg_res',
+                    'pfab_res',
+                    'pfpb_res',
+                    'milk_res',
+                    'water_res',
+                    'otherbevs_res',
+                    'rg_res',
+                    'otherfoods_res'),
+         labels = c('Vegetables and fruits',
+                    'Whole-grain foods',
+                    'Animal protein foods',
+                    'Plant protein foods',
+                    'Unsweetened milk',
+                    'Water & healthy bev.',
+                    'Other beverages',
+                    'Non-whole grains',
+                    'Other foods'))
+
+
+# save for further analyses
+save(suppl_corr_t_melted,
+     file = file.path(res_dir, "suppl_corr_t_melted.rdata"))
+
+# ********************************************** #
+#                 Interpretation                 #
+# ********************************************** #
+
+corr_text <- 
+  suppl_corr_t_melted |>
+  mutate(
+    # trick to keep upper case in nutrient names
+    nutrient_f_lowcase = lapply(nutrient_f,function(x) str_replace(x, "^\\w{1}", tolower)) ,
+    # create text of foods/nutrient + correlation estimate
+    relation = paste(tolower(variable_f),"and", nutrient_f_lowcase),
+    estimate = paste0("(r=",scales::number(value,accuracy=0.01),")"),
+    nutrient_n_estimate = paste(nutrient_f_lowcase,estimate),
+    relation_n_estimate = paste(relation,estimate),
+    # flag food categories not recommended in CFG
+    not_recommended_CFG = ifelse(variable %in% c("otherbevs_res","rg_res","otherfoods_res"),1,0)
+  ) |>
+  select(-nutrient_f_lowcase)
+
+
+```
+
+
+**Supplemental Figure 1** presents Pearson correlations between food and beverage categories contributing to the HEFI-2019 score and key nutrients. Most food and beverage categories recommended in CFG 2019 were correlated with greater nutrient intakes. Notably, the highest correlations were observed between `r knitr::combine_words(corr_text |> slice_max(order_by=value,n=4) |> pull(relation_n_estimate), and=" as well as ",oxford_comma = FALSE)`. Among foods and beverages not recommended in CFG, non-whole grain foods was the only group showing positive correlations with nutrient intakes including with `r knitr::combine_words(corr_text |>filter(variable=="rg_res")|>slice_max(order_by=value,n=2)|>pull(nutrient_n_estimate), and=" and with ")`.
+
+## Prevalence of Inadequate Nutrient Intake
+
+```{r distrib-y-data}
+
+# *********************************************************************** #
+#            Distribution of usual intakes for each nutrient              #
+# *********************************************************************** #
+
+# define variables to keep in each distribution data
+distrib_var <- 
+  c("drig","varname","Mean","StdDev","Variance", paste0("Pctile",seq(1,99)))
+
+# ********************************************** #
+#            Import nutrient distrib             #
+# ********************************************** #
+
+distrib_pro <- 
+  haven::read_sas(file.path(path,'NCI', 'MCMC_pro', 'Results', 'distrib_y_abs_w0.sas7bdat')) |>
+  dplyr::select(!!distrib_var) |>
+  rbind(haven::read_sas(file.path(path,'NCI', 'MCMC_pro', 'Results', 'distrib_y_rel_w0.sas7bdat')) |>
+  dplyr::select(!!distrib_var))
+
+distrib_cavitd <- 
+  # Calcium
+  haven::read_sas(file.path(path,'NCI', 'MCMC_ca_vit_d', 'Results', 'distrib_y_ca_w0.sas7bdat')) |>
+  dplyr::select(!!distrib_var) |>
+  # Vitamin D
+  rbind( haven::read_sas(file.path(path,'NCI', 'MCMC_ca_vit_d', 'Results', 'distrib_y_vitd_w0.sas7bdat')) |>
+  dplyr::select(!!distrib_var))
+
+distrib_miscA <- 
+  # Iron
+  (haven::read_sas(file.path(path,'NCI', 'MCMC_miscA', 'Results', 'distrib_y_iron_w0.sas7bdat')) |>
+  dplyr::select(!!distrib_var) ) |>
+  # Zinc
+  rbind(haven::read_sas(file.path(path,'NCI', 'MCMC_miscA', 'Results', 'distrib_y_zinc_w0.sas7bdat')) |>
+  dplyr::select(!!distrib_var) ) |>
+  # Vitamin B6
+  rbind(haven::read_sas(file.path(path,'NCI', 'MCMC_miscA', 'Results', 'distrib_y_b6_w0.sas7bdat')) |>
+  dplyr::select(!!distrib_var) )  |>
+  # Vitamin B12
+  rbind(haven::read_sas(file.path(path,'NCI', 'MCMC_miscA', 'Results', 'distrib_y_b12_w0.sas7bdat')) |>
+  dplyr::select(!!distrib_var) ) 
+  
+distrib_miscB <- 
+  # Folate
+  (haven::read_sas(file.path(path,'NCI', 'MCMC_miscB', 'Results', 'distrib_y_dfe_w0.sas7bdat')) |>
+  dplyr::select(!!distrib_var) ) |>
+  # Magnesium
+  rbind(haven::read_sas(file.path(path,'NCI', 'MCMC_miscB', 'Results', 'distrib_y_mg_w0.sas7bdat')) |>
+  dplyr::select(!!distrib_var) ) |>
+  # Fiber
+  rbind(haven::read_sas(file.path(path,'NCI', 'MCMC_miscB', 'Results', 'distrib_y_fib_w0.sas7bdat')) |>
+  dplyr::select(!!distrib_var) )  |>
+  # Potassium
+  rbind(haven::read_sas(file.path(path,'NCI', 'MCMC_miscB', 'Results', 'distrib_y_pota_w0.sas7bdat')) |>
+  dplyr::select(!!distrib_var) ) 
+
+distrib_vita <- 
+  # Vitamin A (RAE)
+  haven::read_sas(file.path(path,'NCI', 'MCMC_vit_a', 'Results', 'distrib_y_rae_w0.sas7bdat')) |>
+  dplyr::select(!!distrib_var)
+
+# ********************************************** #
+#            Append nutrient distrib             #
+# ********************************************** #
+
+distrib_y <- 
+  rbind(distrib_pro,distrib_cavitd,
+        distrib_miscA,distrib_miscB,
+        distrib_vita) |>
+  # rename protein variable for consistency
+  dplyr::mutate(
+    varname = ifelse(varname=="proteins","pro",varname),
+    varname = ifelse(varname=="proteins_kg","pro_kg",varname)
+  )
+
+   ## add labels 
+    distrib_y$varname_f <- 
+      factor(distrib_y$varname,
+             levels = varname_list,
+             labels = varlabel_list
+             )
+  
+    distrib_y$drig_f <- 
+      factor(distrib_y$drig,
+             levels = drig_list,
+             labels = drig_label
+             )
+    
+  
+  # transpose to long-formatted data (needed to make graph)
+  distrib_y_t <- 
+    distrib_y |>
+    # Select only percentile of distribution
+    dplyr::select(starts_with("drig"), starts_with("varname"),
+                  Pctile1:Pctile99 ) |> 
+    # Transpose percentile, by DRI group and varname
+    tidyr::pivot_longer(cols=Pctile1:Pctile99) |> 
+    # Add numerical value for percentile
+    dplyr::mutate(
+      p = as.numeric( 
+          gsub("Pctile","",name))
+    )
+  
+  # clean
+  rm(list=c("distrib_pro","distrib_cavitd","distrib_miscA","distrib_miscB"))
+
+
+```
+
+```{r mrg-prob-data}
+
+# ************************************************************************ #
+#                 Import SAS data on marginal Pr(X<EAR)                    #
+# ************************************************************************ #
+
+  # note: mrg, marginal (crude population average)
+
+# ********************************************** #
+#                    Protein                     #
+# ********************************************** #
+mrg_pro <- 
+  haven::read_sas(file.path(path,'NCI', 'MCMC_pro', 'Results', 'distrib_y_rel_wf.sas7bdat')) |>
+  ### Hardcoded value for Pr(X<EAR)
+  dplyr::filter(name=="Prob1") |>
+  # Add nutrient identifier
+  dplyr::mutate(varname="pro")
+
+# ********************************************** #
+#             Calcium and Vitamin D              #
+# ********************************************** #
+mrg_cavitd <- 
+  haven::read_sas(file.path(path,'NCI', 'MCMC_ca_vit_d', 'Results', 'distrib_y_wf.sas7bdat')) |> 
+  dplyr::slice(grep("EAR",name)) 
+
+# ********************************************** #
+#         Iron, Zinc, Vit. B6, Vit. B12          #
+# ********************************************** #
+
+mrg_miscA <- 
+  haven::read_sas(file.path(path,'NCI', 'MCMC_miscA', 'Results', 'distrib_y_wf.sas7bdat')) |> 
+  dplyr::slice(grep("EAR",name)) 
+
+# ********************************************** #
+#        Dietary Folate Eq, Mg, K, Fibers        #
+# ********************************************** #
+
+mrg_miscB <- 
+  haven::read_sas(file.path(path,'NCI', 'MCMC_miscB', 'Results', 'distrib_y_wf.sas7bdat')) |> 
+  dplyr::slice(grep("EAR",name)) 
+
+# ********************************************** #
+#                Vitamin A (RAE)                 #
+# ********************************************** #
+
+mrg_rae <- 
+  haven::read_sas(file.path(path,'NCI', 'MCMC_vit_a', 'Results', 'distrib_y_wf.sas7bdat')) |> 
+  dplyr::slice(grep("EAR",name)) 
+
+# ********************************************** #
+#            Append nutrient distrib             #
+# ********************************************** #
+
+mrg_all <- 
+  rbind(mrg_pro,mrg_cavitd,
+        mrg_miscA,mrg_miscB,
+        mrg_rae) |>
+  # note: fibers and potassium (Pr(X<Adequate Intake)) cannot appear here, since cut-point is not EAR
+  dplyr::filter(
+      !(varname %in% c("fibers","pota"))
+  )
+
+## add labels 
+mrg_all$varname_f <- 
+  factor(mrg_all$varname,
+         levels = varname_list,
+         labels = varlabel_list )
+
+## remove units
+mrg_all <-
+  mrg_all |>
+   # remove units from <varname_f>
+    tidyr::separate(
+      col = varname_f,
+      into = c("varname_f","unit"),
+      sep = ', '
+    )
+
+# clean temporary 
+ rm(list=c("mrg_pro","mrg_cavitd","mrg_miscA","mrg_miscB","mrg_rae"))
+ 
+ mrg_all_drig0_ordered <- 
+   mrg_all |>
+   dplyr::filter(drig==0) |>
+   dplyr::arrange(desc(estimate)) 
+ 
+ 
+ # save data for further analyses
+ save(mrg_all, file=file.path(res_dir,"mrg_all.rdata"))
+ 
+
+
+```
+
+The prevalence of inadequate nutrient intakes ranged from `r round(mrg_all_drig0_ordered[nrow(mrg_all_drig0_ordered),]$estimate,0)`% (`r noquote(tolower1(mrg_all_drig0_ordered[nrow(mrg_all_drig0_ordered),]$varname_f))`) to `r round(mrg_all_drig0_ordered[1,]$estimate,0)`% (`r noquote(tolower1(mrg_all_drig0_ordered[1,]$varname_f))`; @fig-mrg-prob-all). The prevalence of inadequate intakes was high for `r knitr::combine_words(tolower1(mrg_all_drig0_ordered[1:3,]$varname_f))` (`r knitr::combine_words(paste0(round(mrg_all_drig0_ordered[1:3,]$estimate,0),'%'), and="")`, respectively) and moderately high for `r knitr::combine_words(tolower1(mrg_all_drig0_ordered[4:7,]$varname_f))` (`r knitr::combine_words(paste0(round(mrg_all_drig0_ordered[4:7,]$estimate,0),'%'), and="")`, respectively; @fig-mrg-prob-all). Results were similar for most nutrients when stratified by DRI age and sex group (**Supplemental Table 4**).
+
+```{r fig-mrg-prob-all}
+#| label: fig-mrg-prob-all
+#| fig-width: 7
+#| fig-height: 5
+#| fig-cap: "Prevalence of inadequate nutrient intakes in 4,089 adults aged 65 years and older from the CCHS 2015 - Nutrition. Only nutrient intakes from foods were considered (i.e., excluding intakes from dietary supplement). Inadequate intakes are intakes below the age- and sex-specific Estimated Average Requirements (EAR). Potassium and fiber are not shown, because only Adequate Intakes (AI) values are available for these nutrients. All dietary intakes were modelled using the National Cancer Institute multivariate method to estimate usual intakes (see Methods). 95%CI were estimated using 500 bootstrap weight replicates. CCHS, Canadian Community Health Survey."
+
+# *********************************************************************** #
+#              Make dot plot of Pr(X<EAR), all respondents                #
+# *********************************************************************** #
+
+# load data
+ load(file=file.path(res_dir,"mrg_all.rdata"))
+
+# generate figure 
+mrg_prob_plot_all <- 
+  mrg_all |>
+  dplyr::filter(drig==0) |>
+  ggplot(aes(x = reorder(varname_f,estimate,na.rm=TRUE),y=estimate)) +
+  geom_point(size=4) +
+  geom_linerange(aes(ymin=lcl95, ymax=ucl95), stat="identity") +
+  geom_text(aes(label=estimate_ci, fontface="bold"),color="BLACK",size=3,nudge_x = -0.3) + 
+  labs(x="Nutrients",y="Prevalence of inadequacy, %") +
+  coord_flip(ylim=c(0,100))+ 
+  theme_bw() + 
+  theme_dotplotx() +
+  theme(legend.position = "none")
+
+# Show figure
+mrg_prob_plot_all
+
+# ********************************************** #
+#            Export graph as PDF/PNG             #
+# ********************************************** #
+
+  ggplot2::ggsave(here::here("Manuscript","Fig2_prob_ear.pdf"),
+        plot=mrg_prob_plot_all, dpi=300, width=7,height=5, units="in",scale=1.05,device = cairo_pdf)
+
+  ggplot2::ggsave(here::here("Manuscript","Fig2_prob_ear.png"),
+         plot=mrg_prob_plot_all, dpi=300, width=7,height=5, units="in",scale=1.05)
+
+```
+
+\newpage
+
+## Relationship between the HEFI-2019 Score and Nutrient Intakes
+
+```{r linreg-data}
+
+# *********************************************************************** #
+#         Import SAS data - linear regression estimates and plot          #
+# *********************************************************************** #
+
+# ********************************************** #
+#                    Protein                     #
+# ********************************************** #
+linreg_plot_pro <- 
+  haven::read_sas(file.path(path,'NCI', 'MCMC_pro', 'Results', 'lin_plot_allf.sas7bdat')) |>
+  # Add nutrient, drig identifier
+  dplyr::mutate(drig=0,
+                pred_id=as.numeric(gsub("pred","",name))
+  ) |>
+  # add DRI group here
+  rbind(haven::read_sas(file.path(path,'NCI', 'MCMC_pro', 'Results', 'lin_plot_drigf.sas7bdat'))) |> 
+  dplyr::mutate(varname="pro") |> 
+  dplyr::arrange(drig)
+
+# ********************************************** #
+#             Calcium and Vitamin D              #
+# ********************************************** #
+linreg_plot_catvitd <- 
+  haven::read_sas(file.path(path,'NCI', 'MCMC_ca_vit_d', 'Results', 'lin_plot_allf.sas7bdat')) |>
+  # Add nutrient, drig identifier
+  dplyr::mutate(drig=0
+  ) |>
+  # add DRI group here
+  rbind(haven::read_sas(
+      file.path(path,'NCI', 'MCMC_ca_vit_d', 'Results', 'lin_plot_drigf.sas7bdat'),
+                    col_select = -(`_MergeError_`))
+    ) |> 
+  dplyr::arrange(drig)
+
+# ********************************************** #
+#         Iron, Zinc, Vit. B6, Vit. B12          #
+# ********************************************** #
+linreg_plot_miscA <- 
+  haven::read_sas(file.path(path,'NCI', 'MCMC_miscA', 'Results', 'lin_plot_allf.sas7bdat')) |>
+  # Add nutrient, drig identifier
+  dplyr::mutate(drig=0
+  ) |>
+  # add DRI group here
+  rbind(haven::read_sas(
+      file.path(path,'NCI', 'MCMC_miscA', 'Results', 'lin_plot_drigf.sas7bdat'),
+                    col_select = -(`_MergeError_`))
+    ) |> 
+  dplyr::arrange(drig)
+
+# ********************************************** #
+#        Dietary Folate Eq, Mg, K, Fibers        #
+# ********************************************** #
+linreg_plot_miscB <- 
+  haven::read_sas(file.path(path,'NCI', 'MCMC_miscB', 'Results', 'lin_plot_allf.sas7bdat')) |>
+  # Add nutrient, drig identifier
+  dplyr::mutate(drig=0
+  ) |>
+  # add DRI group here
+  rbind(haven::read_sas(
+      file.path(path,'NCI', 'MCMC_miscB', 'Results', 'lin_plot_drigf.sas7bdat'),
+                    col_select = -(`_MergeError_`))
+    ) |> 
+  dplyr::arrange(drig)
+
+# ********************************************** #
+#                Vitamin A (RAE)                 #
+# ********************************************** #
+
+linreg_plot_rae <- 
+  haven::read_sas(file.path(path,'NCI', 'MCMC_vit_a', 'Results', 'lin_plot_allf.sas7bdat')) |>
+  # Add nutrient, drig identifier
+  dplyr::mutate(drig=0
+  ) |>
+  # add DRI group here
+  rbind(haven::read_sas(
+      file.path(path,'NCI', 'MCMC_vit_a', 'Results', 'lin_plot_drigf.sas7bdat'),
+                    col_select = -(`_MergeError_`))
+    ) |> 
+  dplyr::arrange(drig)
+
+# ********************************************** #
+# Append all nutrient, remove useless variables  #
+# ********************************************** #
+
+linreg_plot_all <- 
+  rbind(linreg_plot_pro,linreg_plot_catvitd,
+        linreg_plot_miscA,linreg_plot_miscB,
+        linreg_plot_rae) |> 
+  dplyr::select(-c(name,alpha,one_minus_half_alpha,
+            t_quant,tvalue,pvalue,svalue,`_ci`,`_se`,
+            estimate_se))
+
+rm(list=c("linreg_plot_pro",
+          "linreg_plot_catvitd",
+          "linreg_plot_miscA",
+          "linreg_plot_miscB",
+          "linreg_plot_rae"))
+
+## add labels 
+linreg_plot_all$varname_f <- 
+  factor(linreg_plot_all$varname,
+         levels = varname_list,
+         labels = varlabel_list
+         )
+
+linreg_plot_all$drig_f <- 
+  factor(linreg_plot_all$drig,
+         levels = drig_list,
+         labels = drig_label
+         )
+
+save(linreg_plot_all,
+     file = file.path(res_dir,"linreg_plot_all.rdata"))
+
+# *********************************************************************** #
+#    Output subsample of observations from all mc_t_distrib_out data      #
+# *********************************************************************** #
+
+# wrap import into function (note: lengthy step due to large mc_t data)
+mc_t_import <- function(){
+  
+  # note: we use the <slice_mc_t_out> for consistent output
+  
+  # Import HEFI + nutrient intake by MCMC models
+  mc_t_pro <- 
+    slice_mc_t_out(nutrient="proteins",
+                  nutrient_label = "pro") |> 
+    dplyr::rename(estimate=proteins) |> 
+    dplyr::mutate(varname="pro")
+    
+    #note: <pivot_longer> not used here since pro has only 1 variable
+  
+  mc_t_cavitd <- 
+    slice_mc_t_out(nutrient=c("calcium","vit_d"),
+                  nutrient_label = "ca_vit_d") |> 
+    tidyr::pivot_longer(cols=c("calcium","vit_d"),
+                 names_to = "varname",
+                 values_to = "estimate")
+  
+  mc_t_miscA <- 
+    slice_mc_t_out(nutrient=c("iron","zinc","vit_b6","vit_b12"),
+                  nutrient_label = "miscA") |> 
+    tidyr::pivot_longer(cols=c("iron","zinc","vit_b6","vit_b12"),
+                 names_to = "varname",
+                 values_to = "estimate")
+  
+    mc_t_miscB <- 
+    slice_mc_t_out(nutrient=c("dfe","mg","fibers","pota"),
+                  nutrient_label = "miscB") |> 
+    tidyr::pivot_longer(cols=c("dfe","mg","fibers","pota"),
+                 names_to = "varname",
+                 values_to = "estimate")
+    
+  mc_t_rae <- 
+    slice_mc_t_out(nutrient="rae",
+                  nutrient_label = "vit_a")  |> 
+    dplyr::rename(estimate=rae) |> 
+    dplyr::mutate(varname="rae")
+  
+  # Append all
+  
+  mc_t_subset <-
+    rbind(mc_t_pro,mc_t_cavitd,
+          mc_t_miscA,mc_t_miscB,
+          mc_t_rae) 
+  
+   ## add labels 
+    mc_t_subset$varname_f <- 
+      factor(mc_t_subset$varname,
+             levels = varname_list,
+             labels = varlabel_list
+             )
+    mc_t_subset$drig_f <- 
+      factor(mc_t_subset$drig,
+             levels = drig_list,
+             labels = drig_label
+             )
+    
+    ## indicate output data
+    mc_t_subset$date <- paste0(Sys.Date())
+
+  # Save
+  save(mc_t_subset,
+       file = file.path(res_dir,"mc_t_subset.rdata"))
+}
+
+# ********************************************** #
+#      Import and/or load mc_t subset data       #
+# ********************************************** #
+
+# run function only if <mc_t_subset> data not available
+if( file.exists(file.path(res_dir,"mc_t_subset.rdata"))==FALSE){
+  tictoc::tic()
+  mc_t_import()
+  tictoc::toc()
+}
+
+# load data in any case
+load(file.path(res_dir,"mc_t_subset.rdata"))
+
+
+```
+
+```{r linreg-beta-data}
+
+# *********************************************************************** #
+#               Output reg. coef. estimate for t1t0 diff.                 #
+# *********************************************************************** #
+
+  # note: difference can either be presented in table, used to sort graph or both
+
+# ********************************************** #
+#                    Protein                     #
+# ********************************************** #
+linreg_beta_pro <- 
+  haven::read_sas(file.path(path,'NCI', 'MCMC_pro', 'Results', 'lin_beta_allf.sas7bdat')) |>
+  # Add nutrient, drig identifier
+  dplyr::mutate(drig=0) |> 
+  # add DRI group here
+  rbind(haven::read_sas(file.path(path,'NCI', 'MCMC_pro', 'Results', 'lin_beta_drigf.sas7bdat'))) |> 
+  dplyr::mutate(varname="pro") |> 
+  dplyr::arrange(drig) |> 
+  dplyr::filter(name!="r2")
+
+
+# ********************************************** #
+#             Calcium and Vitamin D              #
+# ********************************************** #
+linreg_beta_catvitd <- 
+  haven::read_sas(file.path(path,'NCI', 'MCMC_ca_vit_d', 'Results', 'lin_beta_allf.sas7bdat')) |>
+  # Add nutrient, drig identifier
+  dplyr::mutate(drig=0
+  ) |>
+  # add DRI group 
+  rbind( haven::read_sas(
+      file.path(path,'NCI', 'MCMC_ca_vit_d', 'Results', 'lin_beta_drigf.sas7bdat'))
+    ) |> 
+  dplyr::arrange(drig) |> 
+  dplyr::filter(name!="r2")
+
+# ********************************************** #
+#         Iron, Zinc, Vit. B6, Vit. B12          #
+# ********************************************** #
+linreg_beta_miscA <- 
+  haven::read_sas(file.path(path,'NCI', 'MCMC_miscA', 'Results', 'lin_beta_allf.sas7bdat')) |>
+  # Add nutrient, drig identifier
+  dplyr::mutate(drig=0
+  ) |>
+  # add DRI group here
+  rbind( haven::read_sas(
+      file.path(path,'NCI', 'MCMC_miscA', 'Results', 'lin_beta_drigf.sas7bdat'))
+    ) |> 
+  dplyr::arrange(drig) |> 
+  dplyr::filter(name!="r2")
+
+# ********************************************** #
+#        Dietary Folate Eq, Mg, K, Fibers        #
+# ********************************************** #
+linreg_beta_miscB <- 
+  haven::read_sas(file.path(path,'NCI', 'MCMC_miscB', 'Results', 'lin_beta_allf.sas7bdat')) |>
+  # Add nutrient, drig identifier
+  dplyr::mutate(drig=0
+  ) |>
+  # add DRI group here
+  rbind(haven::read_sas(
+      file.path(path,'NCI', 'MCMC_miscB', 'Results', 'lin_beta_drigf.sas7bdat'))
+    ) |> 
+  dplyr::arrange(drig) |> 
+  dplyr::filter(name!="r2")
+
+# ********************************************** #
+#                Vitamin A (RAE)                 #
+# ********************************************** #
+
+linreg_beta_rae <- 
+  haven::read_sas(file.path(path,'NCI', 'MCMC_vit_a', 'Results', 'lin_beta_allf.sas7bdat')) |>
+  # Add nutrient, drig identifier
+  dplyr::mutate(drig=0
+  ) |>
+  # add DRI group here
+  rbind( haven::read_sas(
+      file.path(path,'NCI', 'MCMC_vit_a', 'Results', 'lin_beta_drigf.sas7bdat'))
+    ) |> 
+  dplyr::arrange(drig) |> 
+  dplyr::filter(name!="r2")
+
+
+# ********************************************** #
+# Append all nutrient, remove useless variables  #
+# ********************************************** #
+
+linreg_beta_all <- 
+  rbind(linreg_beta_pro,linreg_beta_catvitd,
+        linreg_beta_miscA,linreg_beta_miscB,
+        linreg_beta_rae) |> 
+  dplyr::select(-c(name,alpha,one_minus_half_alpha,
+            t_quant,tvalue,pvalue,svalue,`_ci`,`_se`,
+            estimate_se)) 
+
+   ## add labels 
+    linreg_beta_all$varname_f <- 
+      factor(linreg_beta_all$varname,
+             levels = varname_list,
+             labels = varlabel_list
+             )
+    linreg_beta_all$drig_f <- 
+      factor(linreg_beta_all$drig,
+             levels = drig_list,
+             labels = drig_label
+             )
+
+rm(list=c("linreg_beta_pro",
+          "linreg_beta_catvitd",
+          "linreg_beta_miscA",
+          "linreg_beta_miscB",
+          "linreg_beta_rae"))
+
+# Make new estimate with proper rounding
+linreg_beta_all <- 
+  linreg_beta_all |> 
+  dplyr::select(-estimate_ci) |> 
+  dplyr::mutate(
+    rounding = 
+      case_when (
+       varname == 'pro' ~ 1,
+        varname == 'pro_kg' ~ 0.01,
+        varname == 'calcium' ~ 1,
+        varname == 'vit_d' ~ 0.1,
+        varname == 'iron' ~ 0.1,
+        varname == 'zinc' ~ 0.1,
+        varname == 'vit_b6' ~ 0.1,
+        varname == 'vit_b12' ~ 0.1,
+        varname == 'dfe' ~ 1,
+        varname == 'mg' ~ 1,
+        varname == 'pota' ~ 1,
+        varname == 'fibers' ~ 0.1,
+        varname == 'rae' ~ 1 ),
+    estimate_ci = makeEstimateCI(estimate,lcl95,ucl95,sep=", ",rounding=rounding)
+  )
+
+# ********************************************** #
+#      Rescale coef. as a function of mean       #
+# ********************************************** #
+
+# Import distribution data to obtain mean (usual) intake
+
+  # note: <distrib_y> data created in chunk <distrib-y-data>
+
+linreg_beta_all_ratio <- 
+  distrib_y |> 
+  # Select relevant variables
+  dplyr::select(varname,drig,Mean) |> 
+  # combine with lin. reg. beta, keeping only rows in that data
+  dplyr::right_join(linreg_beta_all) |> 
+  # calculate diff. as a proportion of mean
+  dplyr::mutate(
+    ratio = estimate/Mean
+  )
+
+# create vector of variable names according to ratio value
+y_sorted_beta_drig0 <-
+  linreg_beta_all_ratio |>
+  dplyr::filter(drig==0) |>
+  dplyr::arrange(desc(ratio)) |>
+   # remove units from varnames_f
+    tidyr::separate(
+      col = varname_f,
+      into = c("varname_f2","unit"),
+      sep = ', ',
+      remove=FALSE
+    ) |>
+  dplyr::mutate(
+    varname_f2 = lapply(varname_f2,function(x) str_replace(x, "^\\w{1}", tolower) )
+  )
+
+# ********************************************** #
+#             Save intermediate data             #
+# ********************************************** #
+
+save(linreg_beta_all,
+     file = file.path(res_dir,"linreg_beta_all.rdata"))
+save(y_sorted_beta_drig0,
+     file = file.path(res_dir,"y_sorted_beta_drig0.rdata"))
+  
+
+```
+
+Relationships between the HEFI-2019 score and nutrient intakes are illustrated in **@fig-linreg**. Respondents with higher HEFI-2019 score had higher intakes of `r knitr::combine_words(y_sorted_beta_drig0[1:5,]$varname_f2)`, but lower intakes of `r knitr::combine_words(knitr::combine_words(y_sorted_beta_drig0[nrow(y_sorted_beta_drig0):(nrow(y_sorted_beta_drig0)-3),]$varname_f2))`. The associations between the HEFI-2019 score and intakes of vitamin A, calcium, and zinc were weak or null. **@tbl-linreg-beta** presents the expected difference in nutrient intakes associated with an increase in HEFI-2019 score to the 90^th^ percentile of the score distribution compared with median HEFI-2019 score. For example, increasing HEFI-2019 from the median to the 90^th^ percentile of the score distribution was associated with a `r round(y_sorted_beta_drig0[1,]$estimate,1)` g/day higher `r noquote(y_sorted_beta_drig0[1,]$varname_f2)` intake (95%CI: `r make95ci(y_sorted_beta_drig0[1,],rounding = 0.1)`; @tbl-linreg-beta. In contrast, the same HEFI-2019 score increase was associated with a `r abs(round(y_sorted_beta_drig0[nrow(y_sorted_beta_drig0),]$estimate,1))` `r noquote(paste0("\U00B5"))`/day lower `r noquote(y_sorted_beta_drig0[nrow(y_sorted_beta_drig0),]$varname_f2)` intake (95%CI: `r make95ci(y_sorted_beta_drig0[nrow(y_sorted_beta_drig0),],rounding = 0.1)`; @tbl-linreg-beta).
+
+\newpage
+
+```{r fig-linreg}
+#| label: fig-linreg
+#| fig-cap: "Linear regression of nutrient intake on the total HEFI-2019 score in 4,089 adults aged 65 years or more from the CCHS 2015 - Nutrition. A positive relationship indicates that greater HEFI-2019 scores are associated with greater nutrient intake, and inversely. For visualization purpose, data points are from a random sample of 200 respondents selected proportionally to sampling weights. All dietary intakes were modelled using the National Cancer Institute multivariate method to estimate usual intakes (see Methods). 95%CI were estimated using 500 bootstrap weight replicates. CCHS, Canadian Community Health Survey; HEFI-2019, Healthy Eating Food Index-2019."
+#| fig-height: 7.5
+#| fig-width: 13.5
+
+# *********************************************************************** #
+#              Linear regression with RCS - NUTRIENTS                     #
+# *********************************************************************** #
+
+# load intermediate data - ensures this chunk works regardless of prior execution
+load(file = file.path(res_dir,"mc_t_subset.rdata"))
+load(file = file.path(res_dir,"linreg_plot_all.rdata"))
+load(file = file.path(res_dir,"y_sorted_beta_drig0.rdata"))
+
+# Create new data/new factor variable with ordered nutrients according to value of ratio
+facet_nut_data <- 
+  linreg_plot_all |> 
+  dplyr::filter(drig==0) 
+
+facet_nut_data$varname_f <- 
+  factor(facet_nut_data$varname,
+         levels = y_sorted_beta_drig0$varname,
+         labels = y_sorted_beta_drig0$varname_f )
+
+facet_nut_color <- 
+  MetBrewer::met.brewer("Johnson", 
+                        n=length(unique(facet_nut_data$varname_f)), 
+                        direction=-1)
+
+
+# Plot (Nutrient | HEFI-2019) relationship ordered by % change in mean intake 
+linreg_nut_all <- 
+  facet_nut_data |>
+  ggplot(aes(x=HEFI2019_TOTAL_SCORE,y=estimate)) + 
+  geom_point(data=mc_t_subset,
+             aes(x=HEFI2019_TOTAL_SCORE,y=estimate),alpha=0.3,shape=1) +
+  geom_ribbon(aes(ymin=lcl95,ymax=ucl95),alpha=0.1)+
+  geom_line(aes(color=varname_f), linewidth=1.05) +
+  geom_line(aes(x=HEFI2019_TOTAL_SCORE,y=lcl95,color=varname_f),linetype="longdash") +
+  geom_line(aes(x=HEFI2019_TOTAL_SCORE,y=ucl95,color=varname_f),linetype="longdash") +
+  scale_color_manual(values=facet_nut_color) +
+  scale_x_continuous(breaks=c(seq(10,80, by=10))) +
+  facet_wrap(~varname_f,scales="free_y") +
+  labs(x="HEFI-2019 score based on usual intakes (/80), points",
+       y="Usual nutrient intake") +
+  theme_bw()+
+  theme(panel.grid.minor.x = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        legend.position = "none")
+
+# Show figure
+linreg_nut_all
+
+# ********************************************** #
+#            Export graph as PDF/PNG             #
+# ********************************************** #
+
+  ggplot2::ggsave(here::here('Manuscript','Fig3_reg_hefi_nut.pdf'),
+        plot=linreg_nut_all, dpi=300, width=13.5,height=7.5, units="in",scale=1,device = cairo_pdf)
+
+  ggplot2::ggsave(here::here('Manuscript','Fig3_reg_hefi_nut.png'),
+         plot=linreg_nut_all, dpi=300, width=13.5,height=7.5, units="in",scale=1)
+
+
+```
+
+\newpage
+
+```{r tbl-linreg-beta}
+#| label: tbl-linreg-beta
+#| tbl-cap: "tbl-linreg-beta"
+#| tbl-cap-location: top
+
+# *********************************************************************** #
+#           Generate table of regression coefficient estimates            #
+# *********************************************************************** #
+
+# ********************************************** #
+#        Calculate unweighted sample size        #
+# ********************************************** #
+
+tbl_freq_drig <- 
+  table(subset(hs_65y, energy>0)$drig, dnn="drig") |>
+  data.frame() |>
+  mutate(
+    Total    = scales::number(sum(Freq),big.mark=","),
+    Freq_fmt = scales::number(Freq,big.mark=",")
+  )
+
+# ********************************************** #
+#                  Print table                   #
+# ********************************************** #
+
+# load 
+load(file = file.path(res_dir,"linreg_beta_all.rdata"))
+
+# prepare
+tbl_linreg_beta <- 
+  linreg_beta_all |> 
+  dplyr::mutate(
+    # create proper labels for DRI age/sex group using the unweighted sample sizes
+    drig_f_n = 
+      case_when(
+        drig == 0 ~ paste0(drig_f, " (n=", tbl_freq_drig[1,"Total"],")"),
+        drig == 12 ~ paste0(drig_f, " (n=", subset(tbl_freq_drig, drig==12,"Freq_fmt"),")"),
+        drig == 13 ~ paste0(drig_f, " (n=", subset(tbl_freq_drig, drig==13,"Freq_fmt"),")"),
+        drig == 14 ~ paste0(drig_f, " (n=", subset(tbl_freq_drig, drig==14,"Freq_fmt"),")"),
+        drig == 15 ~ paste0(drig_f, " (n=", subset(tbl_freq_drig, drig==15,"Freq_fmt"),")"),
+      )
+  ) |>
+  # transpose data from long to wide 
+  dplyr::select(varname_f, drig_f_n, estimate_ci) |> 
+  tidyr::pivot_wider(names_from="drig_f_n",
+                     values_from= "estimate_ci") |> 
+  # generate table with gt()
+  gt::gt() |>
+  gt::tab_spanner(label = "Dietary Reference Intake group",
+                  columns = 3:6) |>
+  gt::cols_label(
+    varname_f = "Nutrients"
+  ) |>
+  gt::tab_style(
+    style = list(
+      cell_text(weight = "bold")  ),
+    locations = cells_column_spanners(spanners=everything())
+  ) |>
+  gt::tab_header(title= "Usual nutrient intake difference between HEFI-2019 scores at the 90th percentile and the median of the HEFI-2019 score distribution in 4,089 adults aged 65 years and older from the CCHS 2015 - Nutrition") |>
+  gt::tab_footnote(
+    footnote =  "Values are expected nutrient intake differences (95%CI) for a HEFI-2019 score at the 90th compared with the 50th percentile of the score distribution and were estimated using linear regression models.Estimates reflect the expected nutrient intake difference when HEFI-2019 scores are increased to correspond to the 90th percentile of the score distribution, compared with the median HEFI-2019 score. All dietary intakes were modelled using the National Cancer Institute multivariate method to estimate usual intakes (see Methods). 95%CI were estimated using 500 bootstrap weight replicates. Sample size indicate the number of respondents without applying sampling weights, but other estimates were weighted to reflect the Canadian population. CCHS, Canadian Community Health Survey; d, day; HEFI-2019, Healthy Eating Food Index-2019.",
+    locations = cells_title("title")
+  ) |>
+  gtstyle()
+
+# *********************************************************************** #
+#  Use <gtsave_select> function to print table directly or save as docx   #
+# *********************************************************************** #
+
+gtsave_select(tbl_linreg_beta,paste0("Table 1. linear reg estimate"),docx="N")
+
+```
+
+## Relationship between the HEFI-2019 Score and Nutrient Intake Inadequacy
+
+### Inadequate Nutrient Intakes
+
+```{r logreg-data}
+
+# *********************************************************************** #
+#        Output Pr(X<EAR | HEFI=t1),Pr(X<EAR | HEFI=t0) and diff.         #
+# *********************************************************************** #
+
+# ********************************************** #
+#                    Protein                     #
+# ********************************************** #
+
+logreg_beta_pro0 <- 
+  haven::read_sas(file.path(path,'NCI', 'MCMC_pro', 'Reg', 'logr_mod_hefi_y06_raw0.sas7bdat')) |>
+  # Add nutrient, drig identifier
+  dplyr::mutate(drig=0,
+                t1perc=90,
+                t0perc=50) |> 
+  # add DRI group here
+  rbind(haven::read_sas(file.path(path,'NCI', 'MCMC_pro', 'Reg_drig', 'logr_mod_hefi_y06_raw0.sas7bdat'))) |> 
+  dplyr::mutate(varname="pro") |> 
+  dplyr::arrange(drig) |>
+  dplyr::mutate(
+    varname = "pro_kg"
+  ) |> 
+  dplyr::select(-c(t1perc,t0perc))
+
+logreg_beta_pro <- 
+  haven::read_sas(file.path(path,'NCI', 'MCMC_pro', 'Results', 'log_beta_allf.sas7bdat')) |>
+  # Add nutrient, drig identifier
+  dplyr::mutate(drig=0) |> 
+  # add DRI group here
+  rbind( haven::read_sas(file.path(path,'NCI', 'MCMC_pro', 'Results', 'log_beta_drigf.sas7bdat'))) |> 
+  dplyr::mutate(varname="pro") |> 
+  dplyr::arrange(drig) |> 
+  # keeping only Pr(X<EAR)
+  dplyr::filter(outcome=="binary_06") |>
+  dplyr::mutate(
+    varname = "pro_kg"
+  )
+
+# ********************************************** #
+#             Calcium and Vitamin D              #
+# ********************************************** #
+
+# Import base model with Pr(X<EAR) at t1 and t0
+cavitd0 <- 
+  haven::read_sas(file.path(path,'NCI', 'MCMC_ca_vit_d', 'Reg', 'logr_mod_y_ca_raw0.sas7bdat')) |> 
+  dplyr::mutate(
+    varname = "calcium"
+  ) |> 
+ rbind(haven::read_sas(file.path(path,'NCI', 'MCMC_ca_vit_d', 'Reg', 'logr_mod_y_vitd_raw0.sas7bdat')) |> 
+  dplyr::mutate(
+    varname = "vit_d"
+  )) |> 
+  dplyr::mutate(drig=0)
+
+cavitd_drig0 <- 
+  haven::read_sas(file.path(path,'NCI', 'MCMC_ca_vit_d', 'Reg_drig', 'logr_mod_y_ca_raw0.sas7bdat')) |> 
+  dplyr::mutate(
+    varname = "calcium"
+      ) |>
+  rbind(haven::read_sas(file.path(path,'NCI', 'MCMC_ca_vit_d', 'Reg_drig', 'logr_mod_y_vitd_raw0.sas7bdat')) |> 
+  dplyr::mutate(
+    varname = "vit_d"
+      ) ) |> 
+  dplyr::select(-c(t0perc,t1perc))
+  
+  ## Append both
+  logreg_beta_catvitd0 <- 
+  rbind(cavitd0,cavitd_drig0)  
+  
+  ## clean 
+  rm(list=c("cavitd0","cavitd_drig0"))
+
+# Import risk ratio
+logreg_beta_catvitd <- 
+  haven::read_sas(file.path(path,'NCI', 'MCMC_ca_vit_d', 'Results', 'log_beta_allf.sas7bdat')) |>
+  # Add nutrient, drig identifier
+  dplyr::mutate(drig=0
+  ) |>
+  # add DRI group 
+  rbind( haven::read_sas(
+      file.path(path,'NCI', 'MCMC_ca_vit_d', 'Results', 'log_beta_drigf.sas7bdat'))
+    ) |> 
+  dplyr::arrange(drig) |> 
+  # some formatting for consistency
+  dplyr::rename(outcome=varname) |> 
+  dplyr::mutate(
+    varname = case_when(
+      outcome =="binary_ca" ~ "calcium",
+      outcome =="binary_vitd" ~ "vit_d"
+    )
+  )
+
+# ********************************************** #
+#         Iron, Zinc, Vit. B6, Vit. B12          #
+# ********************************************** #
+
+# Import base model with Pr(X<EAR) at t1 and t0
+miscA0 <- 
+  haven::read_sas(file.path(path,'NCI', 'MCMC_miscA', 'Reg', 'logr_mod_y_iron_raw0.sas7bdat')) |> 
+  dplyr::mutate(
+    varname = "iron"
+  ) |> 
+ rbind(haven::read_sas(file.path(path,'NCI', 'MCMC_miscA', 'Reg', 'logr_mod_y_zinc_raw0.sas7bdat')) |> 
+  dplyr::mutate(
+    varname = "zinc"
+  )) |> 
+ rbind(haven::read_sas(file.path(path,'NCI', 'MCMC_miscA', 'Reg', 'logr_mod_y_b6_raw0.sas7bdat')) |> 
+  dplyr::mutate(
+    varname = "vit_b6"
+  )) |> 
+ rbind(haven::read_sas(file.path(path,'NCI', 'MCMC_miscA', 'Reg', 'logr_mod_y_b12_raw0.sas7bdat')) |> 
+  dplyr::mutate(
+    varname = "vit_b12"
+  )) |> 
+  dplyr::mutate(drig=0)
+
+miscA_drig0 <- 
+  haven::read_sas(file.path(path,'NCI', 'MCMC_miscA', 'Reg_drig', 'logr_mod_y_iron_raw0.sas7bdat')) |> 
+  dplyr::mutate(
+    varname = "iron"
+  ) |> 
+ rbind(haven::read_sas(file.path(path,'NCI', 'MCMC_miscA', 'Reg_drig', 'logr_mod_y_zinc_raw0.sas7bdat')) |> 
+  dplyr::mutate(
+    varname = "zinc"
+  )) |> 
+ rbind(haven::read_sas(file.path(path,'NCI', 'MCMC_miscA', 'Reg_drig', 'logr_mod_y_b6_raw0.sas7bdat')) |> 
+  dplyr::mutate(
+    varname = "vit_b6"
+  )) |> 
+ rbind(haven::read_sas(file.path(path,'NCI', 'MCMC_miscA', 'Reg_drig', 'logr_mod_y_b12_raw0.sas7bdat')) |> 
+  dplyr::mutate(
+    varname = "vit_b12"
+  )) |> 
+  dplyr::select(-c(t0perc,t1perc))
+  
+  ## Append both
+  logreg_beta_miscA0 <- 
+  rbind(miscA0,miscA_drig0)  
+  
+  ## clean 
+  rm(list=c("miscA0","miscA_drig0"))
+
+# Import risk ratio
+logreg_beta_miscA <- 
+  haven::read_sas(file.path(path,'NCI', 'MCMC_miscA', 'Results', 'log_beta_allf.sas7bdat')) |>
+  # Add nutrient, drig identifier
+  dplyr::mutate(drig=0
+  ) |>
+  # add DRI group here
+  rbind( haven::read_sas(
+      file.path(path,'NCI', 'MCMC_miscA', 'Results', 'log_beta_drigf.sas7bdat'))
+    ) |> 
+  dplyr::arrange(drig) |> 
+  # some formatting for consistency
+  dplyr::rename(outcome=varname) |> 
+  dplyr::mutate(
+    varname = case_when(
+      outcome =="binary_iron" ~ "iron",
+      outcome =="binary_zinc" ~ "zinc",
+      outcome =="binary_b6" ~ "vit_b6",
+      outcome =="binary_b12" ~ "vit_b12"
+    )
+  )
+
+# ********************************************** #
+#        Dietary Folate Eq, Mg, K, Fibers        #
+# ********************************************** #
+
+# Import base model with Pr(X<EAR) at t1 and t0
+miscB0 <- 
+  haven::read_sas(file.path(path,'NCI', 'MCMC_miscB', 'Reg', 'logr_mod_y_dfe_raw0.sas7bdat')) |> 
+  dplyr::mutate(
+    varname = "dfe"
+  ) |> 
+ rbind(haven::read_sas(file.path(path,'NCI', 'MCMC_miscB', 'Reg', 'logr_mod_y_mg_raw0.sas7bdat')) |> 
+  dplyr::mutate(
+    varname = "mg"
+  )) |> 
+ rbind(haven::read_sas(file.path(path,'NCI', 'MCMC_miscB', 'Reg', 'logr_mod_y_pota_raw0.sas7bdat')) |> 
+  dplyr::mutate(
+    varname = "pota"
+  )) |> 
+ rbind(haven::read_sas(file.path(path,'NCI', 'MCMC_miscB', 'Reg', 'logr_mod_y_fib_raw0.sas7bdat')) |> 
+  dplyr::mutate(
+    varname = "fibers"
+  )) |> 
+  dplyr::mutate(drig=0)
+
+miscB_drig0 <- 
+  haven::read_sas(file.path(path,'NCI', 'MCMC_miscB', 'Reg_drig', 'logr_mod_y_dfe_raw0.sas7bdat')) |> 
+  dplyr::mutate(
+    varname = "dfe"
+  ) |> 
+ rbind(haven::read_sas(file.path(path,'NCI', 'MCMC_miscB', 'Reg_drig', 'logr_mod_y_mg_raw0.sas7bdat')) |> 
+  dplyr::mutate(
+    varname = "mg"
+  )) |> 
+ rbind(haven::read_sas(file.path(path,'NCI', 'MCMC_miscB', 'Reg_drig', 'logr_mod_y_pota_raw0.sas7bdat')) |> 
+  dplyr::mutate(
+    varname = "pota"
+  )) |> 
+ rbind(haven::read_sas(file.path(path,'NCI', 'MCMC_miscB', 'Reg_drig', 'logr_mod_y_fib_raw0.sas7bdat')) |> 
+  dplyr::mutate(
+    varname = "fibers"
+  )) |> 
+  dplyr::select(-c(t0perc,t1perc))
+  
+  ## Append both
+  logreg_beta_miscB0 <- 
+  rbind(miscB0,miscB_drig0)  
+  
+  ## clean 
+  rm(list=c("miscB0","miscB_drig0"))
+
+# Import risk ratio
+logreg_beta_miscB <- 
+  haven::read_sas(file.path(path,'NCI', 'MCMC_miscB', 'Results', 'log_beta_allf.sas7bdat')) |>
+  # Add nutrient, drig identifier
+  dplyr::mutate(drig=0
+  ) |>
+  # add DRI group here
+  rbind(haven::read_sas(
+      file.path(path,'NCI', 'MCMC_miscB', 'Results', 'log_beta_drigf.sas7bdat'))
+    ) |> 
+  dplyr::arrange(drig)  |> 
+  # some formatting for consistency
+  dplyr::rename(outcome=varname) |> 
+  dplyr::mutate(
+    varname = case_when(
+      outcome =="binary_dfe" ~ "dfe",
+      outcome =="binary_fib" ~ "fibers",
+      outcome =="binary_pota" ~ "pota",
+      outcome =="binary_mg" ~ "mg"
+    )
+  )
+
+# ********************************************** #
+#                Vitamin A (RAE)                 #
+# ********************************************** #
+
+# Import base model with Pr(X<EAR) at t1 and t0
+logreg_beta_rae0 <- 
+  (haven::read_sas(file.path(path,'NCI', 'MCMC_vit_a', 'Reg', 'logr_mod_y_rae_raw0.sas7bdat')) |> 
+   dplyr::mutate(drig=0) 
+   ) |> 
+  rbind(
+    haven::read_sas(file.path(path,'NCI', 'MCMC_vit_a', 'Reg_drig', 'logr_mod_y_rae_raw0.sas7bdat')) |> 
+    dplyr::select(-c(t1perc,t0perc)) 
+  ) |> 
+  dplyr::mutate(varname="rae")
+
+# Import risk ratio
+logreg_beta_rae <- 
+  haven::read_sas(file.path(path,'NCI', 'MCMC_vit_a', 'Results', 'log_beta_allf.sas7bdat')) |>
+  # Add nutrient, drig identifier
+  dplyr::mutate(drig=0
+  ) |>
+  # add DRI group here
+  rbind( haven::read_sas(
+      file.path(path,'NCI', 'MCMC_vit_a', 'Results', 'log_beta_drigf.sas7bdat'))
+    ) |> 
+  dplyr::arrange(drig)  |> 
+  # some formatting for consistency
+  dplyr::rename(outcome=varname) |> 
+  dplyr::mutate(
+    varname = case_when(
+      outcome =="binary_rae" ~ "rae"
+    )
+  )
+
+
+# ********************************************** #
+# Append all nutrient, remove useless variables  #
+# ********************************************** #
+
+# Pr(X<EAR) at t1 and t0
+logreg_beta_all0 <- 
+  rbind(logreg_beta_pro0,logreg_beta_catvitd0,
+        logreg_beta_miscA0,logreg_beta_miscB0,
+        logreg_beta_rae0) |> 
+  dplyr::select(-c(replicate,z,log_beta0)) |> 
+  # calculate t1 vs t0 difference to assess consistency
+  dplyr::mutate(
+    t1t0_diff = t1-t0
+  )
+
+   ## add labels 
+    logreg_beta_all0$varname_f <- 
+      factor(logreg_beta_all0$varname,
+             levels = varname_list,
+             labels = varlabeltidy_list
+             )
+    
+    logreg_beta_all0$drig_f <- 
+      factor(logreg_beta_all0$drig,
+             levels = drig_list,
+             labels = drig_label
+             )
+
+# Risk ratio estimate
+logreg_beta_all <- 
+  rbind(logreg_beta_pro,logreg_beta_catvitd,
+        logreg_beta_miscA,logreg_beta_miscB,
+        logreg_beta_rae) |> 
+  dplyr::select(-c(label,alpha,one_minus_half_alpha,
+            t_quant,tvalue,pvalue,svalue,`_ci`,`_se`,
+            estimate_se,estimate_ci)) |>
+  # remove fibers and potassium (AI) which cannot be shown in this figure
+  dplyr::filter(
+    !(varname %in% c("fibers","pota"))
+  )
+
+   ## add labels 
+    logreg_beta_all$varname_f <- 
+      factor(logreg_beta_all$varname,
+             levels = varname_list,
+             labels = varlabeltidy_list
+             )
+    logreg_beta_all$drig_f <- 
+      factor(logreg_beta_all$drig,
+             levels = drig_list,
+             labels = drig_label
+             )
+    
+## clean temporary
+rm(list=c("logreg_beta_pro",
+          "logreg_beta_catvitd",
+          "logreg_beta_miscA",
+          "logreg_beta_miscB",
+          "logreg_beta_rae",
+          "logreg_beta_pro0",
+          "logreg_beta_catvitd0",
+          "logreg_beta_miscA0",
+          "logreg_beta_miscB0",
+          "logreg_beta_rae0"))
+
+# Prepare ordered, formatted data for in text citation purpose
+logreg_beta_drig0_ordered <- 
+  logreg_beta_all |>
+  dplyr::filter(drig==0,name=="risk_diff") |>
+  dplyr::arrange(estimate) |>
+  dplyr::mutate(
+    varname_f2 = lapply(varname_f,function(x) str_replace(x, "^\\w{1}", tolower) )
+  )
+
+# ********************************************** #
+#  Save data to re-use in Supplemental Material  #
+# ********************************************** #
+
+save(logreg_beta_all0,
+     file=file.path(res_dir,"logreg_beta_all0.rdata"))
+save(logreg_beta_all,
+     file=file.path(res_dir,"logreg_beta_all.rdata"))
+
+```
+
+@fig-logreg presents the prevalence and the difference in the prevalence of inadequate nutrient intake according to the HEFI-2019 score. An increase of HEFI-2019 score to the 90^th^ percentile of the score distribution compared with median HEFI-2019 score was associated with reduction of `r knitr::combine_words(abs(round(logreg_beta_drig0_ordered[logreg_beta_drig0_ordered$estimate<(-4.7),]$estimate,1)))` percentage points in the prevalence of inadequate nutrient intakes for `r knitr::combine_words(logreg_beta_drig0_ordered[logreg_beta_drig0_ordered$estimate<(-4.7),]$varname_f2)`, respectively. Inversely, the same HEFI-2019 score increase was associated with a minor increase in the prevalence of inadequate vitamin D intakes (prevalence difference, +`r round(logreg_beta_all |> dplyr::filter(drig==0,name=="risk_diff",varname=="vit_d") |> pull(estimate),1)`%; 95%CI: `r make95ci(logreg_beta_all |> dplyr::filter(drig==0,name=="risk_diff",varname=="vit_d"),rounding = 0.1)`%). The prevalence of inadequate iron intake was 0% and thus unaffected by hypothetical HEFI-2019 score change. For vitamin A, zinc, vitamin B12, calcium and folate, the 95%CI were wide and compatible with both increase and decrease in the prevalence of inadequate intakes (@fig-logreg).
+
+```{r fig-logreg}
+#| label: fig-logreg
+#| fig-cap: "Prevalence of inadequate intakes and difference for HEFI-2019 scores at the 90th compared with the 50th percentile of the score distribution in 4,089 adults aged 65 years or more from the CCHS 2015 - Nutrition. Inadequate intakes are intakes below the age- and sex-specific Estimated Average Requirements (EAR). Potassium and fiber are not shown, because only Adequate Intakes (AI) values are available for these nutrients. All dietary intakes were modelled using the National Cancer Institute multivariate method to estimate usual intakes (see Methods). 95%CI were estimated using 500 bootstrap weight replicates. CCHS, Canadian Community Health Survey; HEFI-2019, Healthy Eating Food Index-2019."
+#| fig-width: 10
+#| fig-height: 7
+
+# *********************************************************************** #
+#    Cleveland dot plot with Pr(X<EAR) at t1, t0 and t1/t0 risk diff.     #
+# *********************************************************************** #
+  
+  # note1: data for this plot was made in chunk above
+  # note2: to facilitate interpretations, nutrient are ordered by descending difference
+  # note3: due to very low Pr(X<EAR) in some cases, absolute difference better reflect change than ratios
+
+# load data
+load(file=file.path(res_dir,"logreg_beta_all0.rdata"))
+load(file=file.path(res_dir,"logreg_beta_all.rdata"))
+
+# remove </d> in varname labels
+logreg_beta_all0 <- 
+  logreg_beta_all0 |>
+  dplyr::mutate(
+    varname_f = gsub("/d","",varname_f)
+  ) |>
+  # remove fibers and potassium (AI) which cannot be shown in this figure
+  dplyr::filter(
+    !(varname %in% c("fibers","pota"))
+  )
+
+# ********************************************** #
+#         Panel A - Pr(X<EAR) at t1, t0          #
+# ********************************************** #
+
+  # note: both prevalence must be in the `wide` format to be plotted on the same line
+
+panelA <- 
+  logreg_beta_all0 |>
+  dplyr::filter(drig==0) |>
+  ggplot() +
+  geom_point(aes(x = y0, y = reorder(varname_f,desc(risk_diff),na.rm=TRUE),shape="50th perc."),size=4) +
+  geom_point(aes(x = y1, y = reorder(varname_f,desc(risk_diff),na.rm=TRUE),shape="90th perc."),size=4) + 
+  scale_shape_manual(values=c(1,16)) + 
+  scale_x_continuous(labels = scales::percent) +
+  labs(y=NULL,
+       x="Prevalence of\ninadequate intakes, %",shape = "") +
+  theme_dotplotx()+ 
+  theme(axis.text.x = element_text(color="black"),
+        axis.text.y = element_text(color="black"),
+        legend.key=element_blank(),
+        legend.position="top") 
+
+# ********************************************** #
+#           Panel B - t1/t0 risk ratio           #
+# ********************************************** #
+
+panelB <- 
+  logreg_beta_all |>
+  dplyr::filter(drig==0,name=="risk_diff") |>
+  # create labels with estimates and 95ci
+  dplyr::mutate(
+    estimate_ci = makeEstimateCI(estimate,lcl95,ucl95,sep=", ",rounding=0.1)
+  ) |>
+  # graph
+  ggplot(aes(x = estimate, y = reorder(varname_f,desc(estimate),na.rm=TRUE))) +
+  geom_point(shape=15,size=4) +
+  geom_vline(xintercept = 0, linetype="dashed", color="GRAY") +
+  geom_linerange(aes(xmin=lcl95, xmax=ucl95), stat="identity") + 
+  geom_text(aes(x=estimate, label=estimate_ci, fontface= "bold"),
+            color="BLACK", vjust = 2 ,size=3) +
+  labs(y=NULL,x="Prevalence difference,\n% point (95%CI)") +
+  theme_dotplotx() + 
+  theme(axis.text.y=element_blank(),
+        axis.text.x = element_text(color="BLACK"))
+  
+# ********************************************** #
+#               Combine Panel A, B               #
+# ********************************************** #
+
+  #note: combination performed with 'patchwork' package
+
+logregplot <- 
+  panelA + panelB 
+
+logregplot
+
+# ********************************************** #
+#            Export graph as PDF/PNG             #
+# ********************************************** #
+
+  ggplot2::ggsave(here::here('Manuscript','Fig4_hypothetical_inrease.pdf'),
+        plot=logregplot, dpi=300, width=10,height=7, units="in",scale=0.8,device = cairo_pdf)
+  
+  ggplot2::ggsave(here::here('Manuscript','Fig4_hypothetical_inrease.png'),
+         plot=logregplot, dpi=300, width=10,height=7, units="in",scale=0.8)
+
+```
+
+#### Hypothetical higher Estimated Average Requirements for protein
+
+```{r logreg-data-pro}
+
+  # note: intakes above current recommendations may be relevant. Output these values
+
+# ********************************************** #
+#     Look at what 1xStDev was in CCHS-2015      #
+# ********************************************** #
+
+  #haven::read_sas(file.path(path,'NCI', 'MCMC_pro', 'Results', 'distrib_y_rel_w0.sas7bdat')) |>
+  #dplyr::select(replicate,drig,varname,Mean,StdDev,Variance,Max,Min,Pctile50)
+
+  #note: StdDev ~ 0.24 g/kg for all respondents. Results not further use.
+
+# *********************************************************************** #
+#        Output Pr(X<EAR | HEFI=t1),Pr(X<EAR | HEFI=t0) and diff.         #
+# *********************************************************************** #
+
+logreg_beta_pro0 <- 
+  rbind(# include current EAR for comparison purpose
+        haven::read_sas(file.path(path,"NCI","MCMC_pro","Reg","logr_mod_hefi_y06_raw0.sas7bdat")),
+        # 0.8g/kg/d (ie, potential EAR for recommendations at 1.0g/kg/d)
+        haven::read_sas(file.path(path,"NCI","MCMC_pro","Reg","logr_mod_hefi_y08_raw0.sas7bdat")),
+        # 1.0g/kg/d (ie, potential EAR for recommendations at 1.1 or 1.2g/kg/d)
+        haven::read_sas(file.path(path,"NCI","MCMC_pro","Reg","logr_mod_hefi_y10_raw0.sas7bdat"))
+        ) |>
+  # Add nutrient, drig identifier
+  dplyr::mutate(drig=0,
+                t1perc=90,
+                t0perc=50) |>
+  # add DRI group here
+  rbind(haven::read_sas(file.path(path,"NCI","MCMC_pro","Reg_drig","logr_mod_hefi_y06_raw0.sas7bdat")),
+        haven::read_sas(file.path(path,"NCI","MCMC_pro","Reg_drig","logr_mod_hefi_y08_raw0.sas7bdat")),
+        haven::read_sas(file.path(path,"NCI","MCMC_pro","Reg_drig","logr_mod_hefi_y10_raw0.sas7bdat"))
+        ) |>
+  dplyr::arrange(drig) |>
+  dplyr::mutate(
+    varname = "pro_kg"
+  ) |>
+  dplyr::select(-c(t1perc,t0perc,replicate,z)) |>
+  tidyr::separate(col="label", into=c("outcome","label"),sep="[|]") |>
+  # Restrict to overall group for simplicity
+  dplyr::filter(drig==0) |>
+  dplyr::mutate(
+     # multiply * 100 for simplicity
+    #across(c("risk_diff","y0","y1"), function(x) x*100),
+    risk_diff = risk_diff * 100
+  )
+
+logreg_beta_pro <- 
+  haven::read_sas(paste0(path,"/NCI/MCMC_pro/Results/log_beta_allf.sas7bdat")) |>
+  # Add nutrient, DRIg identifier
+  dplyr::mutate(drig=0) |>
+  # add DRI group here
+  rbind(haven::read_sas(file.path(path,"NCI","MCMC_pro","Results","log_beta_drigf.sas7bdat"))) |> 
+  dplyr::mutate(varname="pro_kg") |>
+  dplyr::arrange(drig) |>
+  # keeping only Pr(X<EAR)
+  dplyr::filter(outcome %in% c("binary_06","binary_08","binary_10"))  |> 
+  dplyr::select(-c(label,alpha,one_minus_half_alpha,
+            t_quant,tvalue,pvalue,svalue,`_ci`,`_se`,
+            estimate_se,estimate_ci)) |>
+  # Restrict to overall group for simplicity
+  dplyr::filter(drig==0 & name=="risk_diff")
+
+# ********************************************** #
+#  Save data to re-use in Supplemental Material  #
+# ********************************************** #
+
+ save(logreg_beta_pro0, file=file.path(res_dir,"logreg_beta_pro0.rdata"))
+ save(logreg_beta_pro, file=file.path(res_dir,"logreg_beta_pro.rdata"))
+
+
+```
+
+Compared with the median HEFI-2019 score, scores at the 90^th^ percentile decreased the proportion of respondents with protein intakes below hypothetical EAR of 0.8 g/kg/day and 1.0 g/kg/day (**Supplemental Figure 2**). For 0.8 g/kg/d, the prevalence of inadequacy decreased from `r round(logreg_beta_pro0[2,]$y0*100,1)`% to `r round(logreg_beta_pro0[2,]$y1*100,1)`% (prevalence difference: `r round(logreg_beta_pro[2,]$estimate,1)`; 95%CI: `r make95ci(logreg_beta_pro[2,],rounding=0.1)`). For 1.0 g/kg/d, the prevalence decreased from `r round(logreg_beta_pro0[3,]$y0*100,1)`% to `r round(logreg_beta_pro0[3,]$y1*100,1)`% (prevalence difference: `r round(logreg_beta_pro[3,]$estimate,1)`; 95%CI: `r make95ci(logreg_beta_pro[3,],rounding=0.1)`).
+
+## Adequate Intakes for Fiber and Potassium
+
+```{r logreg-data-ai}
+
+# *********************************************************************** #
+#       Output Pr(X>=AI | HEFI=t1),Pr(X>=AI | HEFI=t0) and diff.          #
+# *********************************************************************** #
+
+  #note: AI stands for "Adequate Intake"
+
+logreg_data_AI <-
+  haven::read_sas(file.path(path,"NCI","MCMC_miscB","Reg","Bootstraps","_logr_mod_hefi_y_rawbs.sas7bdat")) |>
+  # remove invalid replicate + keep potassium, fibers
+  dplyr::filter(replicate!=484 &
+                  (varname =="binary_pota" | varname =="binary_fib") ) |>
+  # keep only essential variables for clarity
+  dplyr::select(replicate, varname, exp_y0, exp_y1) |>
+  dplyr::mutate(
+    # inverse odds ratio to get Pr(X>=x)
+    exp_y0_inverse = 1/exp_y0,
+    exp_y1_inverse = 1/exp_y1,
+    # calculate risk (exp/(1+exp))
+    y0 = exp_y0_inverse / (1+exp_y0_inverse), 
+    y1 = exp_y1_inverse / (1+exp_y1_inverse),
+    # calculate risk difference, ratio
+    risk_diff = y1 - y0 ,
+    risk_ratio = y1 / y0 
+  )
+
+# split original vs. replicate 
+logreg0 <- logreg_data_AI[logreg_data_AI$replicate==0,]
+logregbs <- logreg_data_AI[logreg_data_AI$replicate>0,]
+
+# calculate Standard Error for risk ratio (note: done manually to be consistent with SAS)
+logregAI<- 
+  logregbs |>
+  dplyr::group_by(varname) |>
+  dplyr::summarise(
+    se = sd(risk_diff)
+    ) |> 
+  merge(logreg0) |>
+  dplyr::mutate(
+    # define normal quantile
+    qnorm = 1.96,
+    # calculate 95%ci
+    lcl95 = risk_diff - se*1.96 ,
+    ucl95 = risk_diff + se*1.96 ,
+    # multiply * 100 for simplicity
+    across(c("y0","y1","risk_diff","lcl95","ucl95"), function(x) x*100),
+    # make formatted estimate, if need be
+    estimate_ci = makeEstimateCI(risk_diff,lcl95,ucl95,sep=", ",rounding=0.1)
+  )  
+
+#clean temporary
+  rm(list=c("logreg_data_AI","logreg0","logregbs"))
+
+
+```
+
+Compared with the median HEFI-2019 score, score at the 90^th^ percentile increased the proportion of respondents with intakes above the adequate intake for both fibers and potassium. For fibers, the prevalence increased from `r round(logregAI[1,]$y0,1)`% to `r round(logregAI[1,]$y1,1)`% (prevalence difference: +`r round(logregAI[1,]$risk_diff,1)`; 95%CI: `r make95ci(logregAI[1,],rounding=0.1)`). For potassium, the prevalence increased from `r round(logregAI[2,]$y0,1)`% to `r round(logregAI[2,]$y1,1)`% (prevalence difference: +`r round(logregAI[2,]$risk_diff,1)`; 95%CI: `r make95ci(logregAI[2,],rounding=0.1)`).
+
+\newpage
+
+# Discussion
+
+The objective of this study was to describe the relationship between adherence to CFG-2019 recommendations on healthy food choices, measured using the HEFI-2019, and nutrient intakes from food sources in adults 65 years and older from Canada in 2015. We found that higher adherence was associated with higher intakes of fiber, magnesium, vitamin B6, potassium and protein. Had respondents had a higher adherence, we estimated that the prevalence of nutrient inadequacy from foods and beverages for magnesium, vitamin B6 and protein would have been `r knitr::combine_words(abs(round(logreg_beta_drig0_ordered[logreg_beta_drig0_ordered$estimate<(-4.7),]$estimate)))` lower, respectively. However, a higher adherence was not associated with higher intakes of calcium, zinc, iron, folate, vitamin B12 and vitamin D. In turn, we estimated that the high prevalence of calcium inadequacy would not have changed and that of food-based vitamin D would have been `r round(logreg_beta_all |> dplyr::filter(drig==0,name=="risk_diff",varname=="vit_d") |> pull(estimate),1)`% higher in 2015. Overall, these results indicate that CFG-2019 recommendations are insufficient to mitigate nutrient intake inadequacy for certain key nutrients based on the eating patterns of adults aged 65 years or more from Canada in 2015. These findings partially confirm our hypothesis that nutrients typically found in animal-based foods (e.g., iron, vitamin B12, calcium, vitamin D) were inversely associated with adherence to CFG.
+
+Few studies have examined nutrient intake inadequacy according to adherence to the CFG-2019 recommendations. Barr (9) assessed the probability of intake inadequacy upon adherence to an eating pattern consistent with foods depicted in the CFG-2019 plate snapshot. The probability of inadequacy was near 100% for calcium and vitamin D for males and females aged 71 years or more. This result is consistent with findings in the present study, where a higher adherence to recommendations on healthy food choices was insufficient to mitigate the prevalence of inadequacy for calcium and vitamin D. The lack of specific recommendations regarding dairy foods and alternatives in CFG-2019, and consequently the absence of points in the HEFI-2019, may partly explain these findings. Among food and beverage categories contributing to the HEFI-2019, unsweetened milk had the highest correlation with intakes of calcium (r=0.56) and vitamin D (r=0.53; Supplemental Figure 1). Indeed, the main food source of calcium and vitamin D in Canadians’ diet was the “Milk & Alternatives” food group in 2015 (34-36). Of note, the prevalence of inadequacy for vitamin D was very high in this sample (>95%), supporting the notion that meeting vitamin D recommendations through foods alone is an important challenge (36). Similarly, data from the CCHS indicate that calcium intake inadequacy in supplement non-users increased from 58% to 68% between 2004 and 2015, respectively (35). All in all, higher adherence to CFG-2019 recommendations on food choices was insufficient to mitigate the high prevalence of inadequate calcium and vitamin D intakes. Thus, meeting calcium and vitamin D needs would require additional strategies such as specific recommendations in CFG in addition to supplementation or food fortification.
+
+A review by Fernandez et al. highlighted potential gaps in the application of CFG-2019 recommendations, notably whether the CFG-2019 permitted the adequate consumption of nutrient-rich protein foods or not (10). Our results revealed that a higher adherence to CFG-2019 recommendations slightly reduced the low proportion of older adults with intakes below the current EAR (0.66 g/kg) and reduced by 11% and 14% the proportion of those below the hypothetical EAR of 0.8 g/kg and 1.0 g/kg. Notwithstanding, the prevalence of inadequacy for the hypothetical EAR would remain considerable, with 19% and 51% inadequate protein intakes, respectively, thus representing an additional risk factor for sarcopenia (26). Furthermore, these findings only reflect the total daily protein intake and the impact on overall protein food quality or distribution during the day is unknown. Future studies should investigate the relationship between higher adherence to CFG-2019 and overall protein food quality and should examine how to increase consumption of high-quality plant-based protein foods. In that regard, a qualitative study among older adults highlighted that health benefits and food preparation skills would facilitate consumption of plant-based protein foods (37). Increasing consumption of unsweetened soy beverage (currently zero in the present study) or unsweetened milk (mean intake of 125 ml/d; Supplemental Table 2) could also contribute to higher intake of high-quality protein. Finally, we stress that the CCHS 2015 – Nutrition excluded individuals living in institutions who likely have additional needs as well as barriers to consuming higher protein diets (14). 
+
+The inverse associations between the HEFI-2019 and intakes of iron, folate, and vitamin B12 also raise concerns. On one hand, the prevalence of inadequacy for these nutrients did not increase at the population level, partly because the EAR can be met at relatively low intakes for these nutrients. On the other hand, at the individual level, meeting nutrient requirements while following CFG-2019 recommendations may be more difficult in individuals at risk of inadequate intakes, e.g., older adults with loss of appetite (13, 14). Further, vitamin B12 may be particularly important for older adults and recent evidence support that food groups contribute differently at reducing risk of deficiency (38). Meeting folate requirements while following CFG may also be challenging for some individuals since refined grains, not recommended in CFG, showed the highest correlations with folate intake in the present study (Supplemental Figure 1). Indeed, non-whole grain foods are subject to mandatory fortification in Canada which is not the case of whole grain foods (39). In sum, CFG-2019 recommendations should be carefully implemented to ensure meeting nutrient intakes both at the population and individual level. Health Canada published additional information in 2022 on how to apply dietary guidelines to support health professionals and policymakers (40). The information describes the type and frequency of foods to support nutritional needs. The extent to which the additional information helps older adults shift their eating patterns to be both consistent with CFG-2019 and provide optimal nutrient intakes remains to be determined. Findings of the present study highlight that eating patterns of older adults in 2015 failed to provide optimal intakes of calcium, folate and vitamin D despite adhering to CFG-2019 recommendations thereby supporting the need for additional information, perhaps with quantitative recommendations.
+
+The use of national survey data to estimate the impact of higher adherence on the prevalence of nutrient inadequacy in Canada is a strength of this study. But it must be recognized that relationships between adherence to CFG-2019 recommendations and nutrient intakes reflect the underlying eating patterns of adults 65 years or older from Canada in 2015. A variety of underlying food and beverage consumption patterns may be highly consistent with CFG-2019 recommendations yet, have diverging associations with intakes of certain nutrients. As well, eating patterns of older adults, though generally stable, may evolve over time which would result in different associations between adherence to CFG-2019 and nutrients intakes. Another key strength of this work is the use of the NCI MCMC multivariate method to account for random errors in dietary intakes measured with 24-hour recall (30, 31). Using the multivariate method permitted the joint assessment of the relationship between usual nutrient intakes and adherence to CFG-2019 recommendations on healthy food choices, as measured with the HEFI-2019, and the modelling of higher adherence to CFG-2019 recommendations compared with median adherence. Limitations must be addressed. First, self-reported dietary intakes with 24-hour dietary recall are affected by systematic errors or bias (41, 42). The working assumption that intakes are unbiased cannot be verified. Of note, we did not adjust for “misreporting status” to account for energy under-reporting in the present study. The proportion of under-reporters among older adults is not higher than in other age and sex group samples of the CCHS 2015 – Nutrition (43) and evidence indicates that diet quality based on 24-hour dietary recall may not be prone to large bias (44). Second, the food composition database, the Canadian Nutrient File 2015, may not adequately reflect the nutrient profile of foods actually consumed (45). Accordingly, estimates of prevalence of nutrient inadequacy based on self-reported dietary intakes data are not as accurate as estimates based on biomarker data. Third, our results cannot be used to extrapolate nutrient intake inadequacy at the national level. Although calcium and vitamin D supplements could contribute to reducing inadequacies (35, 36), nutrient intakes from dietary supplements were not included since the objective was to assess the relationship between nutrients and adherence to CFG-2019 recommendations on healthy food choices (4, 5, 17). 
+
+In conclusion, higher adherence to CFG-2019 recommendations on healthy food choices was associated with greater intakes of protein, fiber, magnesium and many nutrients considered, based on eating patterns of adults aged 65 years or more from the CCHS 2015 – Nutrition. However, higher adherence was associated with lower intakes of iron, folate, vitamin B12 and vitamin D, and not associated with calcium, zinc or vitamin A intakes, thus insufficient to mitigate dietary inadequacy in these key nutrients. Knowledge of shortfalls of CFG-2019 recommendations regarding nutrient intake inadequacy are relevant to help government, policymakers and registered dietitians in providing more comprehensive and appropriate recommendations to older adults. Our findings support the need for additional information, as that recently published by Health Canada to help ensure that eating patterns are both consistent with CFG-2019 and adequate nutrient intakes (40). Future studies should investigate how eating patterns changed after the publication of CFG-2019 and the additional information and how these changes may affect the relationship between adherence to recommendations and nutrient intakes. 
+
+# Acknowledgments
+
+**Authors’ contributions to the manuscript**: DB and SC designed the research; DB performed statistical analysis; DB wrote the first draft of the manuscript; DB and SC gave final approval and critically reviewed the manuscript.
+
+
+**Sources of support**: This research received no external funding.
+
+**Conflict of Interest and Funding Disclosure**: DB was a casual employee of Health Canada (2019-2020), held a doctoral training award from the Fonds de recherche du Québec – Santé (2019-2021) and holds a Canadian Institutes of Health Research (CIHR) Fellowship award (MFE-181852). SC receives research funding from the CIHR, Dairy Farmers of Canada and the Canadian Foundation for Dietetics Research. None of these agencies has funded nor was involved in this work. DB and SC have no conflicts of interest.
+
+# References
+
+1.	Health Canada. Eating Well with Canada's Food Guide. Ottawa: Health Canada, 2007:1-6.
+2.	Katamay SW, Esslinger KA, Vigneault M, Johnston JL, Junkins BA, Robbins LG, et al. Eating well with Canada's Food Guide (2007): development of the food intake pattern. Nutr Rev 2007;65:155-66.
+3.	Health Canada. Food, Nutrients and Health: Interim Evidence Update 2018 for Health Professionals and Policy Makers. Ottawa: Health Canada, 2019.
+4.	Health Canada. Canada’s food guide. Ottawa: Health Canada, 2019.
+5.	Health Canada. Canada’s Dietary Guidelines - for Health Professionals and Policy Makers. 2019.
+6.	Brassard D, Manikpurage HD, Thériault S, Arsenault BJ, Lamarche B. Greater adherence to the 2019 Canada’s Food Guide recommendations on healthy food choices reduces the risk of cardiovascular disease in adults: a prospective analysis of UK Biobank data. Am J Clin Nutr 2022;116:1748-58.
+7.	Asher KE, Doucet S, Luke A. Registered dietitians' perceptions and use of the plant-based recommendations in the 2019 Canada's Food Guide. J Hum Nutr Diet 2021;34:715-23.
+8.	Barco Leme AC, Laila A, Hou S, Fisberg RM, Ma DWL, Fisberg M, et al. Perceptions of the 2019 Canada's Food Guide: a qualitative study with parents from Southwestern Ontario. Appl Physiol Nutr Metab 2021.
+9.	Barr SI. Is the 2019 Canada's Food Guide Snapshot nutritionally adequate? Appl Physiol Nutr Metab 2019;44:1387-90.
+10.	Fernandez MA, Bertolo RF, Duncan AM, Phillips SM, Elango R, Ma DWL, et al. Translating "protein foods" from the new Canada's Food Guide to consumers: knowledge gaps and recommendations. Appl Physiol Nutr Metab 2020;45:1311-23.
+11.	Auclair O, Burgos SA. Protein consumption in Canadian habitual diets: usual intake, inadequacy, and the contribution of animal- and plant-based foods to nutrient intakes. Appl Physiol Nutr Metab 2021;46:501-10.
+12.	Fabek H, Sanchez-Hernandez D, Ahmed M, Marinangeli CPF, House JD, Anderson GH. An examination of contributions of animal- and plant-based dietary patterns on the nutrient quality of diets of adult Canadians. Appl Physiol Nutr Metab 2021;46:877-86.
+13.	Shlisky J, Bloom DE, Beaudreault AR, Tucker KL, Keller HH, Freund-Levi Y, et al. Nutritional Considerations for Healthy Aging and Reduction in Age-Related Chronic Disease. Adv Nutr 2017;8:17-26.
+14.	Remond D, Shahar DR, Gille D, Pinto P, Kachal J, Peyron MA, et al. Understanding the gastrointestinal tract of the elderly to develop dietary solutions that prevent malnutrition. Oncotarget 2015;6:13858-98.
+15.	Millen BE, Abrams S, Adams-Campbell L, Anderson CA, Brenna JT, Campbell WW, et al. The 2015 dietary guidelines advisory committee scientific report: development and major conclusions. Adv Nutr 2016;7:438-44.
+16.	Keller HH, Lengyel C, Carrier N, Slaughter SE, Morrison J, Duncan AM, et al. Prevalence of inadequate micronutrient intakes of Canadian long-term care residents. Br J Nutr 2018;119:1047-56.
+17.	Brassard D, Elvidge Munene LA, St-Pierre S, Guenther PM, Kirkpatrick SI, Slater J, et al. Development of the Healthy Eating Food Index (HEFI)-2019 measuring adherence to Canada's Food Guide 2019 recommendations on healthy food choices. Appl Physiol Nutr Metab 2022;47:595-610.
+18.	Brassard D, Elvidge Munene LA, St-Pierre S, Gonzalez A, Guenther PM, Jessri M, et al. Evaluation of the Healthy Eating Food Index (HEFI)-2019 measuring adherence to Canada's Food Guide 2019 recommendations on healthy food choices. Appl Physiol Nutr Metab 2022;47:582-94.
+19.	Health Canada. Reference Guide to Understanding and Using the Data: 2015 Canadian Community Health Survey - Nutrition. 2017:1-91.
+20.	Health Canada. Canadian Nutrient File 2015. 2023. Internet: https://food-nutrition.canada.ca/cnf-fce/index-eng.jsp (Accessed June 2023).
+21.	Rana H, Mallet M-C, Gonzalez A, Verreault M-F, St-Pierre S. Free Sugars Consumption in Canada. Nutrients 2021;13:1471.
+22.	Health Canada. Nutrition Labelling: Table of Reference Amounts for Food. Ottawa, 2016.
+23.	Dorrington N, Fallaize R, Hobbs DA, Weech M, Lovegrove JA. A Review of Nutritional Requirements of Adults Aged >/=65 Years in the UK. J Nutr 2020;150:2245-56.
+24.	Otten JJ, Hellwig JP, Meyers LD. Dietary reference intakes : the essential guide to nutrient requirements. Washington, D.C.: National Academies Press, 2006.
+25.	Phillips SM, Chevalier S, Leidy HJ. Protein "requirements" beyond the RDA: implications for optimizing health. Appl Physiol Nutr Metab 2016;41:565-72.
+26.	Bauer J, Biolo G, Cederholm T, Cesari M, Cruz-Jentoft AJ, Morley JE, et al. Evidence-based recommendations for optimal dietary protein intake in older people: a position paper from the PROT-AGE Study Group. J Am Med Dir Assoc 2013;14:542-59.
+27.	Traylor DA, Gorissen SHM, Phillips SM. Perspective: Protein Requirements and Optimal Intakes in Aging: Are We Ready to Recommend More Than the Recommended Daily Allowance? Adv Nutr 2018;9:171-82.
+28.	Dodd KW, Guenther PM, Freedman LS, Subar AF, Kipnis V, Midthune D, et al. Statistical methods for estimating usual intake of nutrients and foods: a review of the theory. J Am Diet Assoc 2006;106:1640-50.
+29.	Thompson FE, Kirkpatrick SI, Subar AF, Reedy J, Schap TE, Wilson MM, et al. The National Cancer Institute's Dietary Assessment Primer: A Resource for Diet Research. J Acad Nutr Diet 2015;115:1986-95.
+30.	Zhang S, Midthune D, Guenther PM, Krebs-Smith SM, Kipnis V, Dodd KW, et al. A New Multivariate Measurement Error Model with Zero-Inflated Dietary Data, and Its Application to Dietary Assessment. Ann Appl Stat 2011;5:1456-87.
+31.	Kirkpatrick SI, Guenther PM, Subar AF, Krebs-Smith SM, Herrick KA, Freedman LS, et al. Using short-term dietary intake data to address research questions related to usual dietary intake among populations and subpopulations: Assumptions, statistical techniques, and considerations. J Acad Nutr Diet 2022;122:1246-62.
+32.	Herrick KA, Rossen LM, Parsons R, Dodd KW. Estimating Usual Dietary In take From National Health and Nut rition Examination Survey Data Using the National Cancer Institute Method. Vital Health Stat 2018;2:1-63.
+33.	Harrell FE. General Aspects of Fitting Regression Models. Edtion ed. Regression Modeling Strategies: With Applications to Linear Models, Logistic and Ordinal Regression, and Survival Analysis. Cham: Springer International Publishing, 2015:13-44.
+34.	Vatanparast H, Islam N, Shafiee M. Consumption of Milk and alternatives decreased among Canadians from 2004 to 2015: evidence from the Canadian community health surveys. BMC Nutr 2021;7:63.
+35.	Vatanparast H, Islam N, Patil RP, Shafiee M, Whiting SJ. Calcium Intake from Food and Supplemental Sources Decreased in the Canadian Population from 2004 to 2015. J Nutr 2020;150:833-41.
+36.	Vatanparast H, Patil RP, Islam N, Shafiee M, Whiting SJ. Vitamin D Intake from Supplemental Sources but Not from Food Sources Has Increased in the Canadian Population Over Time. J Nutr 2020;150:526-35.
+37.	Drolet-Labelle V, Laurin D, Bedard A, Drapeau V, Desroches S. Beliefs underlying older adults' intention to consume plant-based protein foods: A qualitative study. Appetite 2022:106346.
+38.	Huang HH, Cohen AA, Gaudreau P, Auray-Blais C, Allard D, Boutin M, et al. Vitamin B-12 Intake from Dairy But Not Meat is Associated with Decreased Risk of Low Vitamin B-12 Status and Deficiency in Older Adults from Quebec, Canada. J Nutr 2022;152:2483-92.
+39.	Government of Canada. Foods to which vitamins, mineral nutrients and amino acids may or must be added. 2022. Internet: https://inspection.canada.ca/food-labels/labelling/industry/nutrient-content/reference-information/eng/1389908857542/1389908896254?chap=0 (accessed June 2023).
+40.	Health Canada. Canada's Dieteary Guidelines. 2022. Internet: https://food-guide.canada.ca/en/guidelines (accessed June 2023).
+41.	Freedman LS, Commins JM, Moler JE, Willett W, Tinker LF, Subar AF, et al. Pooled results from 5 validation studies of dietary self-report instruments using recovery biomarkers for potassium and sodium intake. Am J Epidemiol 2015;181:473-87.
+42.	Freedman LS, Commins JM, Moler JE, Arab L, Baer DJ, Kipnis V, et al. Pooled results from 5 validation studies of dietary self-report instruments using recovery biomarkers for energy and protein intake. Am J Epidemiol 2014;180:172-88.
+43.	Garriguet D. Accounting for misreporting when comparing energy intake across time in Canada. Health Rep 2018;29:3-12.
+44.	Kirkpatrick SI, Dodd KW, Potischman N, Zimmerman TP, Douglass D, Guenther PM, et al. Healthy Eating Index-2015 Scores Among Adults Based on Observed vs Recalled Dietary Intake. J Acad Nutr Diet 2021;121:2233-41 e1.
+45.	Satija A, Yu E, Willett WC, Hu FB. Understanding nutritional epidemiology and its role in policy. Adv Nutr 2015;6:5-18.
+
+
