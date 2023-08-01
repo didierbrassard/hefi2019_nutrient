@@ -1,0 +1,24 @@
+project: 
+  type: website
+  output-dir: docs
+
+website:
+  title: "Brassard and Chevalier, J Nutr 2023"
+  navbar:
+    background: primary
+    search: true
+    left:
+    - text: "READ ME"
+      href: "https://github.com/didierbrassard/hefi2019_nutrient/blob/main/README.md"
+    - text: "Manuscript"
+      file: 9.1-HEFI19-NUT_ARTICLE.qmd
+    - text: "Supplemental material"
+      file: 9.2-HEFI19-NUT_OSM.qmd
+    - icon: envelope
+      text: Email
+      href: "mailto:didier.brassard@mcgill.ca"  
+
+format:
+  html: 
+    theme: Journal
+    toc: true
