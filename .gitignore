@@ -55,6 +55,7 @@ README.qmd
 # files to be stored on OSF
 /Data/*
 /NCI/*
+/Manuscript/*
 
 /.quarto/
 _render.txt
