@@ -79,7 +79,7 @@ Please note that small modifications were made vs. the original macros
 for efficiency purpose, i.e., a relative path is used in
 `multivar_mcmc_macro_v2.1.sas` to save trace plots and the default
 cut-point probability was modified in
-`percentiles_survey.macro.v1.1.sas` to $Pr(X<x)$ instead of
+`percentiles_survey.macro.v1.1.sas` to $Pr(X< x)$ instead of
 $Pr(X\le x)$.
 
 ### HEFI-2019 macro
