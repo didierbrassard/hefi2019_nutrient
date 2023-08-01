@@ -128,7 +128,8 @@ flowchart TB
   out("<b>Text, figures, tables")
   data1 --> code1 --> data2
   data2 --> code2 --> data3
-  data3 <--> code3 
+  data3 --> code3 
+  code3 --> data3
   data1 --> code2
   macros1["Macros/*.sas"]
   macros1 --> code2
@@ -136,7 +137,8 @@ flowchart TB
   data3 --> qmd1
   data4[(Data/Results)]
   data4 --> qmd2
-  qmd1 <--> data4
+  qmd1 --> data4
+  data4 --> qmd1
   data3 --> qmd2
   qmd1 --> out
   qmd2 --> out
