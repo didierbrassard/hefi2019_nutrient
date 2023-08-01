@@ -247,14 +247,14 @@ flowchart TB
 <td headers="Description" class="gt_row gt_left"><div class='gt_from_md'><p>Parametric bootstrap variance estimation (i.e., 95%CI) based on the previous analyses repeated in 500 bootstrap replicate weights. The repetition is not shown, but statistical estimates obtained with each bootstrap sample are available within the <em>NCI/</em> folders  on OSF</p>
 </div></td>
 <td headers="Link" class="gt_row gt_center"><a href="7.0-Bootstrap_variance.sas">Open code</a></td></tr>
-    <tr><td headers="Name" class="gt_row gt_left">10-HEFI19-NUT_ARTICLE.qmd</td>
+    <tr><td headers="Name" class="gt_row gt_left">9.1-HEFI19-NUT_ARTICLE.qmd</td>
 <td headers="Description" class="gt_row gt_left"><div class='gt_from_md'><p>Quarto document used to generate the text, figures and tables of the article</p>
 </div></td>
-<td headers="Link" class="gt_row gt_center"><a href="10-HEFI19-NUT_ARTICLE.qmd">Open code</a></td></tr>
-    <tr><td headers="Name" class="gt_row gt_left">20-HEFI19-NUT_OSM.qmd</td>
+<td headers="Link" class="gt_row gt_center"><a href="9.1-HEFI19-NUT_ARTICLE.qmd">Open code</a></td></tr>
+    <tr><td headers="Name" class="gt_row gt_left">9.2-HEFI19-NUT_OSM.qmd</td>
 <td headers="Description" class="gt_row gt_left"><div class='gt_from_md'><p>Quarto document used to generate the online supplemental material</p>
 </div></td>
-<td headers="Link" class="gt_row gt_center"><a href="20-HEFI19-NUT_OSM.qmd">Open code</a></td></tr>
+<td headers="Link" class="gt_row gt_center"><a href="9.2-HEFI19-NUT_OSM.qmd">Open code</a></td></tr>
   </tbody>
   &#10;  <tfoot class="gt_footnotes">
     <tr>
@@ -305,7 +305,7 @@ Dietary Assessment*. Ann Appl Stat 2011;5(2B):1456-87. doi:
 Expand for details
 </summary>
 
-    [1] "2023-08-01 12:11:28 EDT"
+    [1] "2023-08-01 12:16:28 EDT"
 
     R version 4.2.2 (2022-10-31)
     Platform: x86_64-apple-darwin17.0 (64-bit)
