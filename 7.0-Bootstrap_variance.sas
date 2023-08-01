@@ -39,8 +39,8 @@
 	libname reslib "&path./NCI/MCMC&suffix./Results/";		/* results */
 	libname baselib "&path./NCI/MCMC&suffix./Model/";		/* base estimates */
 	libname bootlib "&path./NCI/MCMC&suffix./Bootlib/";		/* bootstrap replicates */
-	libname reg "&path./NCI/MCMC&suffix./Reg/";			  	 		/* base estimate for linear reg */
-	libname regb "&path./NCI/MCMC&suffix./Reg/Bootstraps/";  		/* bootstrap data for linear reg */
+	libname reg "&path./NCI/MCMC&suffix./Reg/";			  	/* base estimate for linear reg */
+	libname regb "&path./NCI/MCMC&suffix./Reg/Bootstraps/"; /* bootstrap data for linear reg */
 
 	%mend mcmclib;
 	
@@ -108,8 +108,7 @@
 	%let subgrp = sex drig ;
 
 /* Percentile values to look at when distribution are examined */
-
-%let pctile_list = Pctile1 Pctile5 Pctile10 Pctile25 Pctile50 Pctile75 Pctile90 Pctile95 Pctile99 ;
+	%let pctile_list = Pctile1 Pctile5 Pctile10 Pctile25 Pctile50 Pctile75 Pctile90 Pctile95 Pctile99 ;
 	
  /*************************************************************************/
  /*                                                                       */
@@ -122,7 +121,6 @@
  /************************************************/
 
 /* 0) define suffix of current outcome */
-	
 	%let suffix = _pro ;
 
 /* 1) assign proper library using the same suffix */
@@ -137,7 +135,6 @@
  /*************************************************************************/
 
 /* 1.1) Output linear regression estimates data */
-	
 	data lin_hefi_raw0 lin_hefi_raw_boot;
 		set regb._rcs_hefi_rawBS;
 	if replicate = 0 then output lin_hefi_raw0;
@@ -544,6 +541,87 @@
 	var  estimate se lcl95 ucl95 pvalue svalue cv;
 	run;
 
+ /*************************************************************************/
+ /* BY CATEGORY OF SCORE: Distribution of usual intake                    */
+ /*************************************************************************/
+
+/* 2.1) Output marginal Y distribution data */
+	proc sort data=bootlib._distrib_catscore_wBS;
+	by replicate varname catscore;
+	run;
+	
+	/* note: distrib_catscore_w = Distribution, by Categorized Score, Wide format */
+	
+	/* split sample for the <boot_variance> macro */
+	data distrib_catscore0 distrib_catscore_boot ;
+		set bootlib._distrib_catscore_wBS;
+	if replicate= 0 then output distrib_catscore0;
+	else output distrib_catscore_boot;
+	run;
+
+
+/* 2.2) Use <boot_converge.sas> to look a normal-theory bootstrap variance estimation assumption */
+%boot_converge(indata    = distrib_catscore_boot, /* bootstrap estimates data */
+			   checkconv = Mean Pctile10 Pctile90, /* variable for which we want to look at convergence */
+			   where_sub = %str(where (catscore=4 and varname='calcium')), /* if a subgroup is used - NA for this example */
+			   sefmt     = 5.2, /* formatting for plot */
+			   normality = 1 /* if 1, checks normality */
+			   );
+
+	
+/* 2.3) Use <boot_variance.sas> macro for efficient variance estimation */
+
+	/* 2.3.2) Variance estimation */
+	%boot_variance(inboot    = distrib_catscore_boot, /* bootstrap estimates */
+				   inbase    = distrib_catscore0,  /* original estimatee */
+				   byvar     = varname catscore, /* If <by> variable used */
+				   varlist   = Mean &pctile_list ,
+				   null      = 0, /* Null H for pvalues (i.e., 0 for a difference) */
+				   set_confidence_level=95, /* 95 = 95%CI */
+				   numberfmt = 5.2, /* formatting of estimates */
+				   set_degrees_freedom = %str(nboot-1), 
+				   outdata   = distrib_catscoref1 /* name of output dataset */
+				   ); 
+	
+	%boot_variance(inboot    = distrib_catscore_boot, /* bootstrap estimates */
+				   inbase    = distrib_catscore0,  /* original estimatee */
+				   byvar     = varname catscore, /* If <by> variable used */
+				   varlist   = binary_ear ,
+				   null      = 1, /* Null H for pvalues (i.e., 0 for a difference) */
+				   set_confidence_level=95, /* 95 = 95%CI */
+				   numberfmt = 4.2, /* formatting of estimates */
+				   set_degrees_freedom = %str(nboot-2), 
+				   outdata   = distrib_catscoref2 /* name of output dataset */
+				   ); 
+				   
+ 	/* 2.3.3) Check and save output */
+	data reslib.distrib_w_catscoref(rename=(_LABEL_=label));
+	retain name _LABEL_ catscore;
+	length name $ 32;
+		set distrib_catscoref1 distrib_catscoref2 ;
+	label _LABEL_ = " ";
+	run;
+	
+	proc sort;
+	by varname catscore;
+	run;
+	
+	title1 "Nutrient intake by quarter of total HEFI-2019 score";
+	proc print data=reslib.distrib_w_catscoref label;
+	id varname name nboot catscore;
+	var  estimate se lcl95 ucl95 pvalue svalue cv;
+	where index(name,"Prob")=0;
+	run;
+
+	title2 "Pr(X<x) by quarter of total HEFI-2019 score";
+	proc print data=reslib.distrib_w_catscoref label;
+	id varname name label nboot catscore;
+	var  estimate se lcl95 ucl95 pvalue svalue cv;
+	where index(name,"Prob")>0;
+	run;
+	title1;
+	title2;
+
 /* Clean temp */
 	proc datasets lib=work nolist nodetails ;
 	delete _: distrib_: ;
@@ -560,7 +638,6 @@
  /************************************************/
 
 /* 0) define suffix of current outcome */
-	
 	%let suffix = _ca_vit_d ;
 
 /* 1) assign proper library using the same suffix */
@@ -575,7 +652,6 @@
  /*************************************************************************/
 
 /* 1.1) Output linear regression estimates data */
-	
 	proc sort data=regb._rcs_hefi_rawBS;
 	by replicate;
 	run;
@@ -1154,22 +1230,14 @@
  /* BY CATEGORY OF SCORE: Distribution of usual intake                    */
  /*************************************************************************/
 
-/* 2.1) Append marginal Y distribution data */
-	data bootlib._distrib_catscore_wBS;
-		set reslib.distrib_w_catscore0
-			bootlib.distrib_w_catscore: 
-			;
-	* PREVALENCE: rescale prob to percentage point;
-	if catscore < 9000 then binary_ear = binary_ear*100;
-	run;
-	
-	/* note: distrib_y_rel_w_boot = Distribution of Y, Relative intakes, Wide format */
-
+/* 2.1) Output marginal Y distribution data */
 	proc sort data=bootlib._distrib_catscore_wBS;
 	by replicate varname catscore;
 	run;
 	
-	/* 2.1.2) split sample for the <boot_variance> macro */
+	/* note: distrib_y_rel_w_boot = Distribution of Y, Relative intakes, Wide format */
+	
+	/* split sample for the <boot_variance> macro */
 	data distrib_catscore0 distrib_catscore_boot ;
 		set bootlib._distrib_catscore_wBS;
 	if replicate= 0 then output distrib_catscore0;
@@ -1263,7 +1331,6 @@ run;
  /************************************************/
 
 /* 0) define suffix of current outcome */
-	
 	%let suffix = _miscA ;
 
 /* 1) assign proper library using the same suffix */
@@ -1932,20 +1999,12 @@ run;
  /* BY CATEGORY OF SCORE: Distribution of usual intake                    */
  /*************************************************************************/
 
-/* 2.1) Append marginal Y distribution data */
-	data bootlib._distrib_catscore_wBS;
-		set reslib.distrib_w_catscore0
-			bootlib.distrib_w_catscore: 
-			;
-	* PREVALENCE: rescale prob to percentage point;
-	if catscore < 9000 then binary_ear = binary_ear*100;
-	run;
-	
-	/* note: distrib_y_rel_w_boot = Distribution of Y, Relative intakes, Wide format */
-
+/* 2.1) Output marginal Y distribution data */
 	proc sort data=bootlib._distrib_catscore_wBS;
 	by replicate varname catscore;
 	run;
+	
+	/* note: distrib_y_rel_w_boot = Distribution of Y, Relative intakes, Wide format */
 	
 	/* 2.1.2) split sample for the <boot_variance> macro */
 	data distrib_catscore0 distrib_catscore_boot ;
@@ -2045,7 +2104,6 @@ run;
  /************************************************/
 
 /* 0) define suffix of current outcome */
-	
 	%let suffix = _miscB ;
 
 /* 1) assign proper library using the same suffix */
@@ -2784,7 +2842,7 @@ run;
  /* BY CATEGORY OF SCORE: Distribution of usual intake                    */
  /*************************************************************************/
 
-/* 2.1) Append marginal Y distribution data */
+/* 2.1) Output marginal Y distribution data */
 	proc sort data=bootlib._distrib_catscore_wBS;
 	by replicate varname catscore;
 	run;
@@ -2890,7 +2948,6 @@ run;
  /************************************************/
 
 /* 0) define suffix of current outcome */
-	
 	%let suffix = _vit_a ;
 
 /* 1) assign proper library using the same suffix */
@@ -3430,22 +3487,15 @@ run;
  /* BY CATEGORY OF SCORE: Distribution of usual intake                    */
  /*************************************************************************/
 
-/* 2.1) Append marginal Y distribution data */
-	data bootlib._distrib_catscore_wBS;
-		set reslib.distrib_w_catscore0
-			bootlib.distrib_w_catscore: 
-			;
-	* PREVALENCE: rescale prob to percentage point;
-	if catscore < 9000 then binary_ear = binary_ear*100;
-	run;
-	
-	/* note: distrib_y_rel_w_boot = Distribution of Y, Relative intakes, Wide format */
-
+/* 2.1) Output marginal Y distribution data */
 	proc sort data=bootlib._distrib_catscore_wBS;
 	by replicate varname catscore;
 	run;
 	
-	/* 2.1.2) split sample for the <boot_variance> macro */
+	/* note: distrib_y_rel_w_boot = Distribution of Y, Relative intakes, Wide format */
+
+	
+	/* Split sample for the <boot_variance> macro */
 	data distrib_catscore0 distrib_catscore_boot ;
 		set bootlib._distrib_catscore_wBS;
 	if replicate= 0 then output distrib_catscore0;
@@ -3519,3 +3569,5 @@ run;
 	proc datasets lib=work nolist nodetails ;
 	delete _: distrib_: ;
 	run;
+
+/* end of code */
