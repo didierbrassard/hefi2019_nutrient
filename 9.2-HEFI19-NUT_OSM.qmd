@@ -2,15 +2,18 @@
 title: "Online Supplemental Material"
 author: "Didier Brassard, Stéphanie Chevalier"
 date: today
-format: html
+format:
+  html:
+    theme: Journal
+table-of-contents: true
+code-fold: true
 bibliography: references.bib
 crossref:
   fig-title: Supplemental Figure # (default is "Figure")
   tbl-title: Supplemental Table  # (default is "Table")
 ---
 
-```{r setup}
-#| include: false
+```{r setup, message=FALSE, warning=FALSE}
 
 ## Is the output for MS word?
 OUTPUT_WORD <- "N"
@@ -19,7 +22,7 @@ OUTPUT_WORD <- "N"
 #                Markdown set-up                 #
 # ********************************************** #
 
-knitr::opts_chunk$set(echo = FALSE,
+knitr::opts_chunk$set(echo = TRUE,
                       message = FALSE,
                       warning = FALSE,
                       dpi = 300,
@@ -32,14 +35,23 @@ knitr::opts_chunk$set(echo = FALSE,
 options(scipen = 9999)
 
 ## file path 
-path <- file.path('', 'Volumes', 'SANDISK DID', 'hefi2019_nutrients')
+path <- here::here()
 
 # ********************************************** #
 #              Relative file paths               #
 # ********************************************** #
 
+# create directory to save figures/table/data, if needed
+if(dir.exists(here::here("Manuscript"))==FALSE){
+  dir.create(here::here("Manuscript"))
+}
+if(dir.exists(here::here("Data", "Results"))==FALSE){
+  dir.create(here::here("Data", "Results"))
+}
+
 suppl_dir <- here::here("Manuscript")
 res_dir <- here::here("Data","Results")
+
 
 # *********************************************** #
 #                   Packages                      #
@@ -638,10 +650,10 @@ corr_heatmap
 #            Export graph as PDF/PNG             #
 # ********************************************** #
 
-ggsave(here::here(suppl_dir,"SupplFig_corr_heatmap.pdf"),
+ggsave(here::here(suppl_dir,"SupplFig1_corr_heatmap.pdf"),
        plot=corr_heatmap, dpi=300, width=13,height=7, units="in",scale=1, device=cairo_pdf)
 
-ggsave(here::here(suppl_dir,"SupplFig_corr_heatmap.png"),
+ggsave(here::here(suppl_dir,"SupplFig1_corr_heatmap.png"),
        plot=corr_heatmap, dpi=300, width=13,height=7, units="in",scale=1)
 
 ```
@@ -980,10 +992,10 @@ logregplotpro
 #            Export graph as PDF/PNG             #
 # ********************************************** #
 
-  ggplot2::ggsave(here::here(suppl_dir,"Fig_logreg_pro_all.pdf"),
+  ggplot2::ggsave(here::here(suppl_dir,"SupplFig2_hypothetical_ear.pdf"),
         plot=logregplotpro, dpi=300, width=9,height=5, units="in",scale=0.85,device = cairo_pdf)
 
-  ggplot2::ggsave(here::here(suppl_dir,"Fig_logreg_pro_all.png"),
+  ggplot2::ggsave(here::here(suppl_dir,"SupplFig2_hypothetical_ear.png"),
          plot=logregplotpro, dpi=300, width=9,height=5, units="in",scale=0.85)
 
 ```
