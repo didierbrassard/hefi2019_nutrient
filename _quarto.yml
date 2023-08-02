@@ -14,9 +14,16 @@ website:
       file: 9.1-HEFI19-NUT_ARTICLE.qmd
     - text: "Supplemental material"
       file: 9.2-HEFI19-NUT_OSM.qmd
+    - icon: database-fill
+      text: Access data
+      href: https://osf.io/6na42/
+    right:
     - icon: envelope
       text: Email
-      href: "mailto:didier.brassard@mcgill.ca"  
+      href: "mailto:didier.brassard@mcgill.ca"
+    - icon: twitter
+      text: Twitter
+      href: https://twitter.com/didier_dtp
 
 format:
   html: 
