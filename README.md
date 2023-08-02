@@ -138,8 +138,8 @@ flowchart TB
   code1[1-Data_preparation.sas]
   code2[2, 3, ... 6-NCI_multi_*.sas]
   code3[7.0-Bootstrap_variance.sas]
-  qmd1(<b>10-HEFI19NUT_ARTICLE.qmd)
-  qmd2(<b>20-HEFI19NUT_OSM.qmd)
+  qmd1(<b>9.1-HEFI19-NUT_ARTICLE.qmd)
+  qmd2(<b>9.2-HEFI19-NUT_OSM.qmd)
   out("<b>Text, figures, tables")
   data1 --> code1 --> data2
   data2 --> code2 --> data3
