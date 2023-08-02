@@ -1,5 +1,4 @@
-# Adherence to Canada’s Food Guide 2019 recommendations on healthy food
-choices and nutrient intakes
+# Adherence to Canada’s Food Guide 2019 recommendations on healthy food choices and nutrient intakes
 Didier Brassard
 
 - [Introduction](#introduction)
