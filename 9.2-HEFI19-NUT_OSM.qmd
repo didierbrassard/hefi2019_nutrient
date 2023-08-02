@@ -339,7 +339,7 @@ if(file.exists(file.path(res_dir,"usintake_mc_t_out0.rds"))==FALSE){
   tictoc::toc()
 } else {
   ## file already exists, do nothing else
-  message("note: <usintake_mc_t_out0.rds> data found in <./Results/>")
+  message("note: <usintake_mc_t_out0.rds> data found in <./Data/Results/>")
 }
 
     # note: the SAS format <.sas7bdat> produces ~ 1.5-folder larger data
@@ -809,8 +809,6 @@ suppl_mrg_prob<-
   suppl_mrg_prob |>
   mutate(
     descr_value_f = case_when(
-      #descr_value == "EAR" ~ paste0("Estimated Average Requirements (EAR), ",unit),
-      #descr_value == "AI"  ~ paste0("Adequate Intake (AI)", unit),
       descr_value == "EAR" ~ paste0("EAR, ",unit),
       descr_value == "AI"  ~ paste0("AI, ", unit),
       is.na(descr_value ) ~ "Pr(X<EAR), %"
@@ -873,8 +871,6 @@ gtsave_select(tab_mrg_prob,paste0("SupplTable ",stable_index,". nutrients"),OUTP
 stable_index <- stable_index+1
 
 
-
-
 ```
 
 ## Relationship between the HEFI-2019 score and prevalence of inadequate nutrient intake
@@ -929,10 +925,6 @@ logreg_beta_pro[nrow(logreg_beta_pro):1,"outcome_f"] <-
          levels = logreg_beta_pro[nrow(logreg_beta_pro):1,]$outcome,
          labels = pro_ear_labels[length(pro_ear_labels):1])
 
-# logreg_beta_pro0$outcome_f <-
-#   factor(logreg_beta_pro0$outcome,
-#          levels = logreg_beta_pro0$outcome,
-#          labels = pro_ear_labels)
 
 # ********************************************** #
 #         Panel A - Pr(X<EAR) at t1, t0          #
