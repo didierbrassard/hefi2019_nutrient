@@ -1,4 +1,5 @@
-# Adherence to Canada’s Food Guide 2019 and nutrient intakes
+# Adherence to Canada’s Food Guide 2019 recommendations on healthy food
+choices and nutrient intakes
 Didier Brassard
 
 - [Introduction](#introduction)
@@ -160,10 +161,10 @@ flowchart TB
 ```
 
 Summary statistics output of each step are provided in the OSF
-repository. Thus, the *10_HEFI19NUT_ARTICLE.qmd* Quarto document can be
-used to generate the manuscript including tables and figures directly,
-without having to run all analyses beforehand. The
-*20_HEFI19NUT_OSM.qmd* Quarto document generates the online supplemental
+repository. Thus, the *9.1-HEFI19-NUT_ARTICLE.qmd * Quarto document can
+be used to generate the manuscript including tables and figures
+directly, without having to run all analyses beforehand. The
+*9.2-HEFI19-NUT_OSM.qmd* Quarto document generates the supplemental
 material file.
 
 ### Folders
@@ -206,7 +207,7 @@ flowchart TB
   &#10;  <table class="gt_table" data-quarto-disable-processing="false" data-quarto-bootstrap="false">
   <thead>
     <tr class="gt_heading">
-      <td colspan="3" class="gt_heading gt_title gt_font_normal gt_bottom_border" style>Brief description of SAS and QMD codes</td>
+      <td colspan="3" class="gt_heading gt_title gt_font_normal gt_bottom_border" style>Description of SAS and QMD codes</td>
     </tr>
     &#10;    <tr class="gt_col_headings">
       <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1" scope="col" id="Name">Name</th>
@@ -266,11 +267,11 @@ flowchart TB
     <tr><td headers="Name" class="gt_row gt_left">9.1-HEFI19-NUT_ARTICLE.qmd</td>
 <td headers="Description" class="gt_row gt_left"><div class='gt_from_md'><p>Quarto document used to generate the text, figures and tables of the article</p>
 </div></td>
-<td headers="Link" class="gt_row gt_center"><a href="9.1-HEFI19-NUT_ARTICLE.qmd">Open code</a></td></tr>
+<td headers="Link" class="gt_row gt_center"><a href="9.1-HEFI19-NUT_ARTICLE.qmd">Open code</a> | <a href="https://didierbrassard.github.io/hefi2019_nutrient/9.1-HEFI19-NUT_ARTICLE.html">View document</a></td></tr>
     <tr><td headers="Name" class="gt_row gt_left">9.2-HEFI19-NUT_OSM.qmd</td>
-<td headers="Description" class="gt_row gt_left"><div class='gt_from_md'><p>Quarto document used to generate the online supplemental material</p>
+<td headers="Description" class="gt_row gt_left"><div class='gt_from_md'><p>Quarto document used to generate the supplemental material</p>
 </div></td>
-<td headers="Link" class="gt_row gt_center"><a href="9.2-HEFI19-NUT_OSM.qmd">Open code</a></td></tr>
+<td headers="Link" class="gt_row gt_center"><a href="9.2-HEFI19-NUT_OSM.qmd">Open code</a> | <a href="https://didierbrassard.github.io/hefi2019_nutrient/9.2-HEFI19-NUT_OSM.html">View document</a></td></tr>
   </tbody>
   &#10;  <tfoot class="gt_footnotes">
     <tr>
@@ -313,6 +314,15 @@ Food Guide 2019 recommendations on healthy food choices*. Appl Physiol
 Nutr Metab 2022b;47(5):582-94. doi:
 [10.1139/apnm-2021-0416](https://doi.org/10.1139/apnm-2021-0416).
 
+Health Canada. The Healthy Eating Food Index 2019.
+https://open.canada.ca/data/en/dataset/29892c85-2ff5-484c-873c-f494ffba6e1b
+: Open Government Portal, 2023.
+
+Health Canada. Reference Guide to Understanding and Using the Data: 2015
+Canadian Community Health Survey - Nutrition.
+https://www.canada.ca/en/health-canada/services/food-nutrition/food-nutrition-surveillance/health-nutrition-surveys/canadian-community-health-survey-cchs/reference-guide-understanding-using-data-2015.html
+: 2017.
+
 Rana H, Mallet M-C, Gonzalez A, et al. Free Sugars Consumption in
 Canada. Nutrients 2021;13(5):1471. doi:
 [10.3390/nu13051471](https://doi.org/10.3390/nu13051471)
@@ -329,7 +339,7 @@ Dietary Assessment*. Ann Appl Stat 2011;5(2B):1456-87. doi:
 Expand for details
 </summary>
 
-    [1] "2023-08-01 12:16:28 EDT"
+    [1] "2023-08-02 11:08:47 EDT"
 
     R version 4.2.2 (2022-10-31)
     Platform: x86_64-apple-darwin17.0 (64-bit)
@@ -349,14 +359,15 @@ Expand for details
     [1] gt_0.9.0    purrr_1.0.1 tidyr_1.3.0 dplyr_1.1.2
 
     loaded via a namespace (and not attached):
-     [1] rstudioapi_0.15.0 xml2_1.3.5        knitr_1.43        magrittr_2.0.3   
-     [5] tidyselect_1.2.0  here_1.0.1        R6_2.5.1          rlang_1.1.1      
-     [9] fastmap_1.1.1     fansi_1.0.4       tools_4.2.2       xfun_0.39        
-    [13] utf8_1.2.3        cli_3.6.1         withr_2.5.0       commonmark_1.9.0 
-    [17] htmltools_0.5.5   yaml_2.3.7        rprojroot_2.0.3   digest_0.6.33    
-    [21] tibble_3.2.1      lifecycle_1.0.3   sass_0.4.7        vctrs_0.6.3      
-    [25] glue_1.6.2        evaluate_0.21     rmarkdown_2.23    compiler_4.2.2   
-    [29] pillar_1.9.0      generics_0.1.3    jsonlite_1.8.7    markdown_1.7     
-    [33] pkgconfig_2.0.3  
+     [1] pillar_1.9.0      compiler_4.2.2    forcats_1.0.0     tools_4.2.2      
+     [5] digest_0.6.33     jsonlite_1.8.7    evaluate_0.21     lifecycle_1.0.3  
+     [9] tibble_3.2.1      pkgconfig_2.0.3   rlang_1.1.1       cli_3.6.1        
+    [13] rstudioapi_0.15.0 commonmark_1.9.0  yaml_2.3.7        haven_2.5.3      
+    [17] xfun_0.39         fastmap_1.1.1     withr_2.5.0       knitr_1.43       
+    [21] xml2_1.3.5        generics_0.1.3    vctrs_0.6.3       sass_0.4.7       
+    [25] hms_1.1.3         rprojroot_2.0.3   tidyselect_1.2.0  glue_1.6.2       
+    [29] here_1.0.1        R6_2.5.1          fansi_1.0.4       rmarkdown_2.23   
+    [33] readr_2.1.4       tzdb_0.4.0        magrittr_2.0.3    htmltools_0.5.5  
+    [37] utf8_1.2.3        markdown_1.7     
 
 </details>
