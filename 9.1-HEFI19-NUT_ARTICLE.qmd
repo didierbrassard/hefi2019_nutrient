@@ -42,6 +42,7 @@ if(dir.exists(here::here("Data", "Results"))==FALSE){
   dir.create(here::here("Data", "Results"))
 }
 
+ms_dir  <- here::here("Manuscript")
 res_dir <- here::here("Data","Results")
 
 
@@ -254,7 +255,7 @@ theme_dotplotx <- function() {
 if(docx == "Y"){
   # save as docx
  object |>
-    gt::gtsave(here::here("Manuscript",paste0(label,".docx")))
+    gt::gtsave(file.path(ms_dir,paste0(label,".docx")))
 } else {
   # print gt object directly
   object
@@ -556,10 +557,10 @@ hefi_distrib_plot
 #            Export graph as PDF/PNG             #
 # ********************************************** #
 
-  ggplot2::ggsave(here::here('Manuscript', 'Fig1_hefi_distrib.pdf'),
+  ggplot2::ggsave(file.path(ms_dir, 'Fig1_hefi_distrib.pdf'),
         plot=hefi_distrib_plot, dpi=300, width=7,height=7, units="in",scale=1,device = cairo_pdf)
 
-  ggplot2::ggsave(here::here('Manuscript', 'Fig1_hefi_distrib.png'),
+  ggplot2::ggsave(file.path(ms_dir, 'Fig1_hefi_distrib.png'),
          plot=hefi_distrib_plot, dpi=300, width=7,height=7, units="in",scale=1)
 
 
@@ -574,7 +575,7 @@ hefi_distrib_plot
 # Read mcmc data and save as <rds> for efficiency purpose
 if(file.exists(file.path(res_dir,"usintake_mc_t_out0.rds"))==FALSE){
   ## record time
-  tictoc::tic()
+  tictoc::tic(msg = "loading <NCI/MCMC_score/Model/_usintake_mc_t_out0.sas7bdat>")
   ## read mcmc data on external drive once, write as .rds file for future use
   haven::read_sas(file.path(path, 'NCI', 'MCMC_score', 'Model', '_usintake_mc_t_out0.sas7bdat')) |>
     ### drop some variables as only dietary intake data used here
@@ -1031,10 +1032,10 @@ mrg_prob_plot_all
 #            Export graph as PDF/PNG             #
 # ********************************************** #
 
-  ggplot2::ggsave(here::here("Manuscript","Fig2_prob_ear.pdf"),
+  ggplot2::ggsave(file.path(ms_dir,"Fig2_prob_ear.pdf"),
         plot=mrg_prob_plot_all, dpi=300, width=7,height=5, units="in",scale=1.05,device = cairo_pdf)
 
-  ggplot2::ggsave(here::here("Manuscript","Fig2_prob_ear.png"),
+  ggplot2::ggsave(file.path(ms_dir,"Fig2_prob_ear.png"),
          plot=mrg_prob_plot_all, dpi=300, width=7,height=5, units="in",scale=1.05)
 
 ```
@@ -1236,7 +1237,7 @@ mc_t_import <- function(){
 
 # run function only if <mc_t_subset> data not available
 if( file.exists(file.path(res_dir,"mc_t_subset.rdata"))==FALSE){
-  tictoc::tic()
+  tictoc::tic(msg = "loading and sampling <NCI/MCMC_*/Model/mc_t_distrib_out0.sas7bdat>" )
   mc_t_import()
   tictoc::toc()
 }
@@ -1493,10 +1494,10 @@ linreg_nut_all
 #            Export graph as PDF/PNG             #
 # ********************************************** #
 
-  ggplot2::ggsave(here::here('Manuscript','Fig3_reg_hefi_nut.pdf'),
+  ggplot2::ggsave(file.path(ms_dir,'Fig3_reg_hefi_nut.pdf'),
         plot=linreg_nut_all, dpi=300, width=13.5,height=7.5, units="in",scale=1,device = cairo_pdf)
 
-  ggplot2::ggsave(here::here('Manuscript','Fig3_reg_hefi_nut.png'),
+  ggplot2::ggsave(file.path(ms_dir,'Fig3_reg_hefi_nut.png'),
          plot=linreg_nut_all, dpi=300, width=13.5,height=7.5, units="in",scale=1)
 
 
@@ -2029,10 +2030,10 @@ logregplot
 #            Export graph as PDF/PNG             #
 # ********************************************** #
 
-  ggplot2::ggsave(here::here('Manuscript','Fig4_hypothetical_inrease.pdf'),
+  ggplot2::ggsave(file.path(ms_dir,'Fig4_hypothetical_inrease.pdf'),
         plot=logregplot, dpi=300, width=10,height=7, units="in",scale=0.8,device = cairo_pdf)
   
-  ggplot2::ggsave(here::here('Manuscript','Fig4_hypothetical_inrease.png'),
+  ggplot2::ggsave(file.path(ms_dir,'Fig4_hypothetical_inrease.png'),
          plot=logregplot, dpi=300, width=10,height=7, units="in",scale=0.8)
 
 ```

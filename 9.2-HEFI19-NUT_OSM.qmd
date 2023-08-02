@@ -1,5 +1,5 @@
 ---
-title: "Online Supplemental Material"
+title: "Supplemental Material"
 author: "Didier Brassard, Stéphanie Chevalier"
 date: today
 format:
@@ -67,7 +67,6 @@ library(patchwork)
 library(gt)
 library(tinytex)
 library(MetBrewer)
-
 
 ## saving gt object vs. printing directly
   gtsave_select <- function(object,label,docx){
@@ -328,7 +327,7 @@ stable_index <- stable_index+1
 # Read mcmc data and save as <rds> for efficiency purpose
 if(file.exists(file.path(res_dir,"usintake_mc_t_out0.rds"))==FALSE){
   ## record time
-  tictoc::tic()
+  tictoc::tic(msg = "loading <NCI/MCMC_score/Model/_usintake_mc_t_out0.sas7bdat>")
   ## read mcmc data on external drive once, write as .rds file for future use
   haven::read_sas(file.path(path, 'NCI', 'MCMC_score', 'Model', '_usintake_mc_t_out0.sas7bdat')) |>
     ### drop some variables as only dietary intake data used here
