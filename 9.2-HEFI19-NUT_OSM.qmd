@@ -667,6 +667,8 @@ ggsave(here::here(suppl_dir,"SupplFig1_corr_heatmap.png"),
 
   # note: mrg, marginal (crude population average)
 
+# If data has not been created+saved un <9.1-HEFI19-NUT_ARTICLE.qmd>, do it here
+if(file.exists(file.path(res_dir,"mrg_all.rdata"==FALSE))){
 # ********************************************** #
 #                    Protein                     #
 # ********************************************** #
@@ -725,6 +727,10 @@ mrg_all <-
 
 # clean temporary 
  rm(list=c("mrg_pro","mrg_cavitd","mrg_miscA","mrg_miscB","mrg_rae"))
+}
+
+# load <mrg_all> data in any case
+load(file = file.path(res_dir,"mrg_all.rdata"))
  
 # *********************************************************************** #
 #             Combine manual data with prevalence estimates               #
