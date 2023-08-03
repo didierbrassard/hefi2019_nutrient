@@ -881,21 +881,6 @@ distrib_y <-
              labels = drig_label
              )
     
-  
-  # transpose to long-formatted data (needed to make graph)
-  distrib_y_t <- 
-    distrib_y |>
-    # Select only percentile of distribution
-    dplyr::select(starts_with("drig"), starts_with("varname"),
-                  Pctile1:Pctile99 ) |> 
-    # Transpose percentile, by DRI group and varname
-    tidyr::pivot_longer(cols=Pctile1:Pctile99) |> 
-    # Add numerical value for percentile
-    dplyr::mutate(
-      p = as.numeric( 
-          gsub("Pctile","",name))
-    )
-  
   # clean
   rm(list=c("distrib_pro","distrib_cavitd","distrib_miscA","distrib_miscB"))
 
