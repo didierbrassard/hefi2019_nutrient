@@ -34,8 +34,10 @@ adults 65 years and older from the Canadian Community Health Survey
 
 ## Quick links
 
-- [**Journal of Nutrition**: Free PDF of the article (until Sept. 19,
-  2023)](https://authors.elsevier.com/a/1hW0W_WUPSMQ4)
+- [**McGill Press
+  Release**](https://www.mcgill.ca/nutrition/channels/news/does-canadas-food-guide-provide-adequate-guidance-older-adults-354026)
+- [**Journal of Nutrition**: Official
+  artcile](https://linkinghub.elsevier.com/retrieve/pii/S0022-3166(23)72484-X)
 - [**medRxiv**: Pre-print version of the
   study](https://doi.org/10.1101/2023.02.13.23285868)
 - [**GitHub**: Main article code, text, figures and
@@ -202,7 +204,7 @@ flowchart TB
   D-."500<br>repetitions".->A
 ```
 
-<div id="zevrmshmfn" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<div id="mlnbzptsel" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
   &#10;  <table class="gt_table" data-quarto-disable-processing="false" data-quarto-bootstrap="false">
   <thead>
     <tr class="gt_heading">
@@ -338,7 +340,7 @@ Dietary Assessment*. Ann Appl Stat 2011;5(2B):1456-87. doi:
 Expand for details
 </summary>
 
-    [1] "2023-08-02 11:08:47 EDT"
+    [1] "2024-01-10 09:37:54 EST"
 
     R version 4.2.2 (2022-10-31)
     Platform: x86_64-apple-darwin17.0 (64-bit)

@@ -1,6 +1,19 @@
 ---
 title: "Relationship between adherence to the 2019 Canada’s Food Guide recommendations on healthy food choices and nutrient intakes in older adults"
-author: "Didier Brassard, Stéphanie Chevalier"
+author:
+  - name: Didier Brassard
+    orcid: 0000-0002-7064-3066
+    email: didier.brassard@mcgill.ca
+    corresponding: false
+    affiliation:
+      - School of Human Nutrition, McGill University
+  - name: Stéphanie Chevalier
+    orcid: 0000-0002-8497-1570
+    affiliation:
+      - School of Human Nutrition, McGill University
+      - Research Institute of the McGill University Health Centre
+    email: stephanie.chevalier@mcgill.ca
+    corresponding: true
 date: today
 format:
   html:
