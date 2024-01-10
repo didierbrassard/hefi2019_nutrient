@@ -36,8 +36,8 @@ adults 65 years and older from the Canadian Community Health Survey
 
 - [**McGill Press
   Release**](https://www.mcgill.ca/nutrition/channels/news/does-canadas-food-guide-provide-adequate-guidance-older-adults-354026)
-- [**Journal of Nutrition**: Official
-  artcile](https://linkinghub.elsevier.com/retrieve/pii/S0022-3166(23)72484-X)
+- [**Journal of Nutrition**: official
+  article](https://linkinghub.elsevier.com/retrieve/pii/S0022-3166(23)72484-X)
 - [**medRxiv**: Pre-print version of the
   study](https://doi.org/10.1101/2023.02.13.23285868)
 - [**GitHub**: Main article code, text, figures and
